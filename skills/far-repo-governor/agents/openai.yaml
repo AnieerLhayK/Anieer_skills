@@ -1,0 +1,4 @@
+interface:
+  display_name: "Far-repo Governor"
+  short_description: "Govern public module projections and GitHub repositories."
+  default_prompt: "Use $far-repo-governor to define and publish a safe public projection for this module."

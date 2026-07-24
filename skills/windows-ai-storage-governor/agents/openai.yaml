@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows AI Storage Governor"
+  short_description: "Audit and plan safe Windows AI storage migrations"
+  default_prompt: "Use $windows-ai-storage-governor to audit AI tool storage paths and produce a reversible migration plan."

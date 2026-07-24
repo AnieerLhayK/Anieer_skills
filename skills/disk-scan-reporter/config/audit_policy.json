@@ -1,0 +1,45 @@
+{
+  "allowed_write_roots": [
+    "reports",
+    "state",
+    "logs"
+  ],
+  "static_source_roots": [
+    "scripts"
+  ],
+  "destructive_apis": [
+    "os.remove",
+    "os.unlink",
+    "os.rmdir",
+    "os.rename",
+    "os.replace",
+    "Path.unlink",
+    "Path.rmdir",
+    "Path.rename",
+    "Path.replace",
+    "pathlib.Path.unlink",
+    "pathlib.Path.rmdir",
+    "pathlib.Path.rename",
+    "pathlib.Path.replace",
+    "shutil.rmtree",
+    "shutil.move",
+    "send2trash",
+    "send2trash.send2trash"
+  ],
+  "destructive_command_tokens": [
+    "del",
+    "erase",
+    "rmdir",
+    "remove-item",
+    "cleanmgr"
+  ],
+  "destructive_methods": [
+    "unlink",
+    "rmdir",
+    "rename"
+  ],
+  "snapshot": {
+    "enabled": true,
+    "include_direct_child_name_hash": true
+  }
+}

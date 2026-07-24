@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "repository": "OWNER/REPOSITORY",
+  "branch": "main",
+  "required_paths": [
+    "README.md",
+    "LICENSE"
+  ],
+  "required_any": [
+    [
+      "pyproject.toml",
+      "package.json",
+      "SKILL.md"
+    ]
+  ],
+  "forbidden_path_prefixes": [
+    "private/",
+    "reports/",
+    "task_records/"
+  ],
+  "recommended_paths": [
+    ".github/workflows/ci.yml"
+  ],
+  "allowed_top_level": [
+    ".github",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+    "src",
+    "tests"
+  ],
+  "max_blob_bytes": 1048576
+}

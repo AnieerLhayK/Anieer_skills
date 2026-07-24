@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "disk-scan-reporter-report-1.0.0",
+  "title": "Disk Scan Reporter Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "tool_version",
+    "generated_at",
+    "config_used",
+    "config_fingerprint",
+    "scan_paths",
+    "path_reporting",
+    "summary",
+    "coverage",
+    "audit",
+    "items",
+    "top_large_files",
+    "errors",
+    "skipped",
+    "safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "tool_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config_used": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config_fingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "scan_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "path_reporting": {
+      "type": "object"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_files_scanned",
+        "total_dirs_scanned",
+        "logical_size_bytes",
+        "allocated_size_bytes",
+        "observed_allocated_size_bytes",
+        "allocated_size_files",
+        "allocated_size_unavailable_files",
+        "allocated_size_complete",
+        "hardlink_duplicates_skipped",
+        "permission_errors",
+        "not_found_errors",
+        "interrupted_errors",
+        "metadata_errors",
+        "unknown_errors",
+        "total_errors"
+      ],
+      "properties": {
+        "total_files_scanned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_dirs_scanned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "logical_size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocated_size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "observed_allocated_size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocated_size_files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocated_size_unavailable_files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocated_size_complete": {
+          "type": "boolean"
+        },
+        "hardlink_duplicates_skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "permission_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_found_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "interrupted_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "metadata_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown_errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_errors": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "coverage": {
+      "type": "object"
+    },
+    "audit": {
+      "type": "object"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/candidate"
+      }
+    },
+    "top_large_files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/candidate"
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/error"
+      }
+    },
+    "skipped": {
+      "type": "array"
+    },
+    "safety": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "candidate": {
+      "type": "object",
+      "required": [
+        "path",
+        "logical_size_bytes",
+        "allocated_size_bytes",
+        "size_basis",
+        "category",
+        "risk"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "logical_size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocated_size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "size_basis": {
+          "const": "logical"
+        },
+        "category": {
+          "type": "string"
+        },
+        "risk": {
+          "type": "string"
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "path",
+        "category",
+        "errno",
+        "error"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "permission_denied",
+            "not_found",
+            "interrupted",
+            "metadata_error",
+            "unknown"
+          ]
+        },
+        "errno": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

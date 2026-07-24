@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "skills": {
+    "collaboration-builder": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "assets/starter/**",
+      "references/*.md",
+      "scripts/*.py"
+    ],
+    "disk-scan-reporter": [
+      ".gitignore",
+      "README.md",
+      "README.zh-CN.md",
+      "SKILL.md",
+      "agents/openai.yaml",
+      "assets/*.md",
+      "config/*.json",
+      "references/*.md",
+      "references/*.json",
+      "scripts/*.py",
+      "scripts/*.md",
+      "tests/*.py",
+      "tests/*.md"
+    ],
+    "far-repo-governor": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "assets/licenses/MIT.txt",
+      "references/*.json",
+      "scripts/*.py",
+      "tests/*.py"
+    ],
+    "windows-ai-storage-governor": [
+      ".gitignore",
+      "SKILL.md",
+      "agents/openai.yaml",
+      "fixtures/*.json",
+      "references/*.md",
+      "scripts/*.ps1"
+    ]
+  }
+}

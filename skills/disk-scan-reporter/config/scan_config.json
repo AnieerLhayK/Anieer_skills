@@ -1,0 +1,25 @@
+{
+  "scan_paths": [
+    "%USERPROFILE%\\Downloads",
+    "%LOCALAPPDATA%\\Temp"
+  ],
+  "exclude_paths": [
+    "C:\\Windows",
+    "C:\\Program Files",
+    "C:\\Program Files (x86)",
+    "C:\\System Volume Information",
+    "$Recycle.Bin",
+    ".git"
+  ],
+  "large_file_mb": 500,
+  "very_large_file_mb": 1024,
+  "old_file_days": 60,
+  "max_depth": 4,
+  "follow_symlinks": false,
+  "max_report_items": 5000,
+  "max_diagnostic_items": 1000,
+  "max_files_per_run": 100000,
+  "max_scan_seconds": 120,
+  "audit_policy": "audit_policy.json",
+  "report_path_mode": "relative"
+}

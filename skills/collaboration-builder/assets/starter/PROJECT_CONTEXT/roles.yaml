@@ -1,0 +1,6 @@
+roles:
+  maintainer:
+    path: ""
+{{ROLE_CONFIG}}
+protected_exact: [AGENTS.md, README.md, .gitignore, requirements-collaboration.txt, COLLABORATION/AGENTS.md, COLLABORATION/CLAUDE.md]
+protected_prefixes: [scripts/, PROJECT_CONTEXT/, COLLABORATION/]

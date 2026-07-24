@@ -1,0 +1,19 @@
+# Runtime reports and local operator notes
+reports/*
+!reports/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# PowerShell and test scratch output
+*.log
+*.tmp
+*.bak
+tmp/
+temp/
+
+# Python test/runtime artifacts used by optional harnesses
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

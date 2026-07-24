@@ -1,0 +1,26 @@
+schema_version: 1
+purpose: Configurable AI collaboration task routes.
+default_rules:
+  first_steps: [Read AGENTS.md and README.md, Run git status --short --branch]
+  default_forbidden: ["**/cache/", "**/tmp/", "**/temp/", "**/ztemp/", "**/__pycache__/", "**/.pytest_cache/"]
+tasks:
+  governance_update:
+    required_read: [AGENTS.md, COLLABORATION/AGENTS.md, COLLABORATION/governance/permissions.md]
+    write_scope: [AGENTS.md, README.md, COLLABORATION/, PROJECT_CONTEXT/, scripts/]
+    validation: [python scripts/resolve_task_context.py governance_update, git diff --check]
+  team_work:
+    required_read: [AGENTS.md, COLLABORATION/AGENTS.md]
+    write_scope: [team/, COLLABORATION/task-board.md]
+    validation: [git diff --check]
+  handoff:
+    required_read: [AGENTS.md, COLLABORATION/handoff/README.md, COLLABORATION/handoff/checklist.md]
+    write_scope: [team/, COLLABORATION/handoff/, COLLABORATION/task-board.md]
+    validation: [git status --short --ignored]
+  integration_review:
+    required_read: [AGENTS.md, COLLABORATION/governance/merge.md, COLLABORATION/governance/permissions.md]
+    write_scope: [COLLABORATION/task-board.md]
+    validation: [git status --short --branch, git diff --check]
+  local_cleanup:
+    required_read: [AGENTS.md, COLLABORATION/governance/ignore.md]
+    write_scope: [.gitignore]
+    validation: [git status --short --ignored]

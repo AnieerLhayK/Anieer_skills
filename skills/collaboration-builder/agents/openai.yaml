@@ -1,0 +1,4 @@
+interface:
+  display_name: "Collaboration Builder"
+  short_description: "Scaffold configurable AI team collaboration"
+  default_prompt: "Use $collaboration-builder to add a configurable collaboration system to this repository."

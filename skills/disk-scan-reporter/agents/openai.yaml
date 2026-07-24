@@ -1,0 +1,4 @@
+interface:
+  display_name: "Disk Scan Reporter"
+  short_description: "Create safe read-only disk usage reports"
+  default_prompt: "Use $disk-scan-reporter to scan configured paths and generate a read-only disk usage report for manual review."

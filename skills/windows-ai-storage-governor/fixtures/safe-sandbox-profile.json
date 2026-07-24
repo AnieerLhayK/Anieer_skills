@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "profile_id": "safe-sandbox",
+  "paths": [
+    {
+      "path": "%TEMP%\\ai-governor-fixture\\npm-cache",
+      "expected_classification": "cache",
+      "live_data": false
+    },
+    {
+      "path": "%TEMP%\\ai-governor-fixture\\sessions",
+      "expected_classification": "session data",
+      "live_data": false
+    },
+    {
+      "path": "%TEMP%\\ai-governor-fixture\\unknown-content",
+      "expected_classification": "unknown",
+      "live_data": false
+    },
+    {
+      "path": "%TEMP%\\ai-governor-fixture\\npm-global\\node_modules",
+      "adapter": "npm-global-root",
+      "expected_classification": "runtime data",
+      "live_data": false
+    },
+    {
+      "path": "%TEMP%\\ai-governor-fixture\\ms-playwright\\b\\browser@example",
+      "adapter": "playwright-registration",
+      "expected_classification": "runtime data",
+      "live_data": false
+    }
+  ]
+}
