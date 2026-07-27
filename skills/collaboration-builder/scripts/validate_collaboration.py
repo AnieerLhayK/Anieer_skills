@@ -14,7 +14,7 @@ except ImportError as exc:  # pragma: no cover
 
 REQUIRED = (
     "AGENTS.md", "README.md", "COLLABORATION/AGENTS.md", "PROJECT_CONTEXT/roles.yaml",
-    "PROJECT_CONTEXT/task_registry.yaml", "scripts/resolve_task_context.py", "scripts/check_change_scope.py",
+    "PROJECT_CONTEXT/task_registry.yaml", "scripts/workspace/resolve_task_context.py", "scripts/check_change_scope.py",
 )
 
 

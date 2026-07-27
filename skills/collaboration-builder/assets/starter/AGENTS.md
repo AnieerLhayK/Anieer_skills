@@ -3,7 +3,7 @@
 Read this file and the root README before work. Run `git status --short --branch` before a material task.
 
 - Work on the user-selected non-default branch; use a task branch when no branch is supplied.
-- Resolve the task before changes: `python scripts/resolve_task_context.py <task_id>`. Read every `required_read` item and write only inside `write_scope`.
+- Resolve the task before changes: `python -m scripts.workspace.resolve_task_context <task_id>`. Read every `required_read` item and write only inside `write_scope`.
 - Read in order: root `AGENTS.md` → `COLLABORATION/AGENTS.md` → role `AGENTS.md` → role `CLAUDE.md` (a pure reference).
 - Keep project facts in their role area. Use a handoff or explicit authorization for a cross-role change.
 - Before commit, run `python scripts/check_change_scope.py --task <task_id> --role <role> --staged`. Explain each warning; warnings are advisory.

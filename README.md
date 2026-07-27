@@ -2,6 +2,10 @@
 
 A portable, generated collection of independently usable Codex skills.
 
+## Related project
+
+- [Frame-for-AI-workspace](https://github.com/AnieerLhayK/Frame-for-AI-workspace): the governed framework and source project for this collection.
+
 ## Included skills
 
 - [`collaboration-builder`](skills/collaboration-builder/SKILL.md)

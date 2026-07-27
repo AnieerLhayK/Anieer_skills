@@ -7,7 +7,7 @@ tasks:
   governance_update:
     required_read: [AGENTS.md, COLLABORATION/AGENTS.md, COLLABORATION/governance/permissions.md]
     write_scope: [AGENTS.md, README.md, COLLABORATION/, PROJECT_CONTEXT/, scripts/]
-    validation: [python scripts/resolve_task_context.py governance_update, git diff --check]
+    validation: [python -m scripts.workspace.resolve_task_context governance_update, git diff --check]
   team_work:
     required_read: [AGENTS.md, COLLABORATION/AGENTS.md]
     write_scope: [team/, COLLABORATION/task-board.md]

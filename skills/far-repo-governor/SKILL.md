@@ -1,68 +1,45 @@
 ---
 name: far-repo-governor
-description: Govern safe module extraction from this workspace into GitHub public projections, and audit, repair, standardize, or optimize projection repositories without maintaining an independent local checkout. Use when selecting an open-sourceable module, defining a projection boundary, registering or synchronizing a managed public repository, reviewing remote repository structure, or correcting remote drift.
+description: Govern safe extraction from an authoritative source into GitHub projections. Use for projection boundaries, registered publishers, remote audits, and projection drift.
 ---
 
 # Far-repo Governor
 
-Use a **projection contract**: a small, reviewable declaration of what a repository must contain, what it must never contain, and how it is regenerated. Treat the workspace source as authoritative whenever it exists.
+Treat an existing source tree as authoritative. A public projection is a generated artifact, not a second editable source.
 
-## 1. Classify the repository
+## Choose the path
 
-Choose one path before editing.
-
-| Path | Authority | Action |
+| Repository | Authority | Action |
 | --- | --- | --- |
-| Managed projection | Workspace source and its registered publisher | Repair the source/publisher, then regenerate and push. |
-| New module projection | A selected workspace module | Define a contract, create a deterministic publisher and checker, register it, then publish. |
-| Remote-only repository | The remote's documented default branch | Audit through GitHub CLI; establish or name its source of truth before changing it. |
+| Managed projection | Registered source and publisher | Repair source/publisher, regenerate, then publish. |
+| New projection | Named source module | Define a contract, publisher, checker, register, then publish. |
+| Remote-only | Declared remote branch | Audit first; record its source of truth before editing. |
 
-For a managed projection, read `shared/agent_governance.yaml -> managed_platform_publishers`. Do not edit the generated checkout or the remote directly: that creates drift.
+For a managed projection, read `shared/agent_governance.yaml -> managed_platform_publishers`. Never patch its generated checkout or remote directly.
 
-## 2. Define the boundary
+## Define and generate
 
-Work from explicitly named source paths and a user-stated public purpose. Inventory only that bounded module and its direct runtime, test, license, and documentation dependencies.
+Start from [references/projection-contract.example.json](references/projection-contract.example.json). A contract names the repository and branch, required and forbidden paths, smallest usable surface, adopter-facing docs/license/tests, and source revision/publisher traceability. Exclude private corpora, credentials, local paths, task records, reports, caches, and unrelated governance.
 
-Write a projection contract before generating files. Start from [references/projection-contract.example.json](references/projection-contract.example.json). Require:
+Generate into disposable staging. The publisher must scrub machine-specific or excluded content, leave the source tree unchanged, and run a contract checker plus relevant tests. Register the publisher once; use the aggregate synchronizer thereafter. Record workspace and approved external writes under the routed task record.
 
-- a repository, branch, required paths, and forbidden path prefixes;
-- the smallest usable API, command entry point, or skill surface;
-- installation, configuration, validation, and license material needed by an adopter;
-- traceability from the generated repository to its source revision and publisher.
+## README discoverability
 
-Keep private corpora, local paths, credentials, task records, runtime reports, cache files, and unrelated workspace governance outside the contract. Prefer a small, independently usable module over a broad workspace copy.
+When a projection has a related, parent, or source repository that users should discover, generate a short, visible README link to it. State the relationship plainly and keep the link in the projection generator or contract—never as a hand patch to generated output. Do not expose private source locations or imply a relationship that the registered contract cannot support.
 
-## 3. Build a reproducible projection
+## Audit and publish
 
-For a new projection, make the publisher and its checker part of the workspace source. The publisher must generate into a staging directory, scrub machine-specific text and excluded content, and leave the source tree unchanged. The checker must validate the contract and execute the module's relevant tests in the generated output.
-
-Register the publisher once in `managed_platform_publishers`; use the aggregate synchronizer thereafter. Record workspace and external writes under the routed task record. Integrate source changes as required by workspace governance before publishing.
-
-## 4. Audit a remote without cloning it
-
-Use the included read-only auditor:
+Audit without cloning broadly:
 
 ```powershell
 python scripts/audit_remote.py --repo OWNER/REPO --branch main --contract references/projection-contract.example.json
 ```
 
-It reads the GitHub tree through `gh api`, checks required, forbidden, size, and top-level structure rules, and produces JSON. A failing contract is evidence for a source/publisher repair; a warning is a candidate for a documented structural improvement.
+Use `gh api` only for named public files when content review is needed. A failed audit requires a source/publisher repair; a warning needs a documented decision.
 
-For content-level review, fetch only the named public files with `gh api repos/OWNER/REPO/contents/PATH`, then compare them to the projection contract and source. Never substitute a broad remote download for a boundary review.
+For managed repositories: change source and publisher, validate staging, integrate as required by workspace governance, run the registered publisher with its record ID, then confirm the remote revision and CI. For remote-only repositories, record owner authorization, branch, source of truth, and exact file set before a small reviewable API commit or PR; re-audit afterward.
 
-## 5. Correct and publish
-
-For managed repositories, change the source and publisher, validate the generated staging output, then run every registered public publisher with the task record ID. Confirm the published remote revision and run its CI.
-
-For remote-only repositories, first record the exact repository, branch, owner authorization, and intended file set. Make a small, reviewable GitHub API commit or pull request only after the audit is clean and the change has a stated source of truth. Re-audit the resulting commit. If recurring maintenance is needed, migrate the repository to a managed projection rather than accumulating direct remote patches.
-
-## Completion criteria
-
-Finish only when the projection contract passes against the generated staging output and the target remote; required functionality tests pass; the public tree contains no excluded material; and the remote default branch or pull request identifies the published source revision. Report skipped optional improvements separately.
-
-## Validation
-
-Run from this skill directory:
+Finish when generated staging and remote satisfy the contract, relevant tests pass, excluded material is absent, and the published revision identifies its source. Run:
 
 ```powershell
 python -m unittest discover tests

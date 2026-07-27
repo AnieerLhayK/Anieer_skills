@@ -20,7 +20,7 @@ Use the **operating model**: one explicit source for task boundaries, role owner
 3. Configure the generated `PROJECT_CONTEXT/roles.yaml` and `task_registry.yaml` from repository facts. Treat these as the single sources of truth for ownership and task routes. Read [configuration.md](references/configuration.md) before changing their schema or adding a role/task type.
    - Completion: each task declares `required_read`, `write_scope`, and validation; each protected path is intentional.
 
-4. Install or retain `PyYAML`, then run `python scripts/validate_collaboration.py <target>` from this skill. In the target repository run `python scripts/resolve_task_context.py --list` and inspect one route per task type.
+4. Install or retain `PyYAML`, then run `python scripts/validate_collaboration.py <target>` from this skill. In the target repository run `python -m scripts.workspace.resolve_task_context --list` and inspect one route per task type.
    - Completion: validation succeeds; no `{{PLACEHOLDER}}` remains; route output matches the written role boundaries.
 
 5. Onboard the team using the target README: state the entry chain, role roots, task IDs, handoff location, and soft-warning behavior. Use `AI-records/<work-item>.md` only for AI work that changes project facts.
