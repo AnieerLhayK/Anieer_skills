@@ -15,7 +15,7 @@ Treat an existing source tree as authoritative. A public projection is a generat
 | New projection | Named source module | Define a contract, publisher, checker, register, then publish. |
 | Remote-only | Declared remote branch | Audit first; record its source of truth before editing. |
 
-For a managed projection, read `shared/agent_governance.yaml -> managed_platform_publishers`. Never patch its generated checkout or remote directly.
+For a managed projection, read `shared/governance/agent_governance.yaml -> managed_platform_publishers`. Never patch its generated checkout or remote directly.
 
 ## Define and generate
 
