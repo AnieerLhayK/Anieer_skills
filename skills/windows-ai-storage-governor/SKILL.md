@@ -1,121 +1,25 @@
 ---
 name: windows-ai-storage-governor
-description: Audit, classify, plan, apply, and verify reversible Windows storage changes for AI tools, caches, sessions, MCP artifacts, user-profile clutter, and selected global install locations. Use when Codex or Claude Code needs to inspect paths used by tools such as Gemini CLI, npm, Playwright, MCP hosts, Hermes, Codex, Claude Code, OpenCode, or Copilot; decide whether data is cache, configuration, runtime, session, source, backup, link, stale artifact, or unknown; reduce new system-drive writes; or prepare a user-approved migration to another drive without disturbing stable junctions or symlinks.
+description: Windows AI-storage governance. Use when bounded audit, reversible planning, or verification is needed.
 ---
 
 # Windows AI Storage Governor
 
-## Contract
+Produce an auditable chain: **audit -> plan -> verify**. Preserve unknown or durable data until evidence and the appropriate authority exist.
 
-Govern Windows AI-related storage with auditability, explicit approval, and rollback.
-Default to read-only work. Treat unknown paths as preserve-and-report.
+## Authority
 
-Own:
+Own bounded inspection, classification, reversible plans, and read-only verification for AI-tool storage. Do not own whole-profile or project-tree migration, disposal of unclear data, or automatic link repair.
 
-- Bounded inspection of user-supplied paths and known tool candidates.
-- Path classification and risk labeling.
-- Reversible migration and cleanup plans.
-- User-approved application of plan-whitelisted actions.
-- Post-change verification and residual-write reporting.
+`apply` is not implied by a plan: it belongs to a separately authorized execution path with exact user approval and runtime write authority. `cleanup` needs a separate exact-path confirmation. Read [safety-policy.md](references/safety-policy.md) before either path; it defines approval gates, mutation constraints, and stop conditions.
 
-Do not own:
+## Run
 
-- Whole-profile, whole-`Users`, whole-`AppData`, or project-tree migration.
-- Deletion of private corpora or data with unclear ownership.
-- Rebuilding a stable junction or symlink without a specific failure and approval.
-- Unplanned deletion, move, overwrite, archive, or rename operations.
-- Source-tree cleanup unrelated to AI storage governance.
+1. Record mode, explicit paths/tools, target root, and report location. Inspect only supplied paths, bounded known candidates, and direct link targets. Complete when the scope is explicit.
+2. Audit with `scripts/audit-environment.ps1` or `scripts/inspect-path.ps1`; preserve observed links. Classify with [path-classification.md](references/path-classification.md), marking uncertain purpose `unknown`. Complete when every observed path has evidence and a disposition.
+3. For planning, run `scripts/build-migration-plan.ps1` from an audit report. Each action must retain source, target, risk, prerequisites, verification, rollback, and approval state; the generator executes nothing. Complete when every proposed action is whitelisted or blocked.
+4. Verify a plan with `scripts/validate-migration.ps1`. Use [tool-adapters.md](references/tool-adapters.md) for tool-specific probes and [migration-runbook.md](references/migration-runbook.md) for an approved reversible execution path. Complete when verification status and residual-write state are recorded.
 
-## Modes
+## Receipt
 
-### audit
-
-Perform read-only inspection. Report observed paths, links, classifications, risks,
-and missing evidence. Do not create destination directories as a convenience.
-
-### plan
-
-Convert an audit into a whitelist of proposed actions. For every action include:
-source, destination, reason, risk, prerequisites, verification, and rollback.
-Separate required, optional, report-only, and blocked items.
-
-### apply
-
-Enter only after the user explicitly approves the exact plan or named action IDs.
-Re-read [references/safety-policy.md](references/safety-policy.md) and
-[references/migration-runbook.md](references/migration-runbook.md). Execute only
-approved whitelist items, one reversible step at a time. Stop on drift, ambiguity,
-unexpected existing content, or failed verification.
-
-### verify
-
-Check command availability, configured locations, link targets, destination
-health, and new system-drive residue. Verification is read-only.
-
-### cleanup
-
-Treat cleanup as stricter than apply. Require a separate confirmation that names
-the exact paths and acknowledges irreversibility. Never infer cleanup approval
-from migration approval.
-
-## Required Workflow
-
-1. Establish scope.
-   - Record the requested mode, paths, tools, target root, and report location.
-   - Resolve the target root from a user value or environment configuration.
-   - Never assume a particular drive letter.
-2. Inspect safely.
-   - Use `scripts/audit-environment.ps1` for bounded environment audits.
-   - Use `scripts/inspect-path.ps1` for a user-named path.
-   - Preserve observed link state; do not recreate links during inspection.
-3. Classify evidence.
-   - Apply [references/path-classification.md](references/path-classification.md).
-   - Mark uncertain items `unknown`; do not guess from a directory name alone.
-4. Plan before mutation.
-   - Use `scripts/build-migration-plan.ps1` to generate a non-executing plan.
-   - Explain risk and rollback before requesting approval.
-5. Apply narrowly when approved.
-   - Verify source and destination have not drifted since the plan.
-   - Prefer supported tool configuration, then environment variables, then a
-     reversible directory link. Preserve the original until validation passes.
-   - Do not execute destructive cleanup in the same approval step.
-6. Verify.
-   - Use `scripts/validate-migration.ps1`.
-   - Report pass, warning, or blocked status and any residual system-drive writes.
-
-## Path Strategy
-
-- Accept `-TargetRoot`, a user-provided path, or a documented environment value.
-- Keep internal skill paths relative to this skill directory.
-- Do not encode a fixed target drive in policy, scripts, fixtures, or reports.
-- Treat system-drive location as a risk signal, not automatic permission to move.
-- Inspect only explicit paths, bounded known candidates, and direct link targets.
-- Do not recursively scan an entire drive, user profile, `Users`, or `AppData`.
-
-## Failure Strategy
-
-- Missing required input: stop with `ERROR` and name the missing value.
-- Missing optional tool or candidate: emit `WARNING` and continue in degraded mode.
-- Unknown path purpose: classify as `unknown`, preserve it, and request evidence.
-- Conflicting source, target, or link state: stop before mutation.
-- Failed verification: stop subsequent actions and present rollback steps.
-- Never fabricate a path, tool setting, migration success, or cleanup eligibility.
-
-## Outputs
-
-Use [references/report-schema.md](references/report-schema.md) for:
-
-- Audit report.
-- Migration plan.
-- Apply record.
-- Verification result.
-- Risk and residual-write summary.
-
-## Resources
-
-- [references/safety-policy.md](references/safety-policy.md): approval and mutation rules.
-- [references/path-classification.md](references/path-classification.md): categories and dispositions.
-- [references/migration-runbook.md](references/migration-runbook.md): reversible execution sequence.
-- [references/report-schema.md](references/report-schema.md): stable output fields.
-- [references/tool-adapters.md](references/tool-adapters.md): bounded tool-specific probes.
-- `fixtures/safe-sandbox-profile.json`: non-live sample input for tests and dry runs.
+Link audit, plan, and verification `report_id` values to the scoped mode and actual authority; include findings, action IDs, approvals, warnings/errors, residual-write state, and final status. Name the stop gate or authorized next step. Stop on unknown purpose, drift, unexpected destination content, link mismatch, insufficient prerequisites, or failed verification. [report-schema.md](references/report-schema.md) defines the stable fields.

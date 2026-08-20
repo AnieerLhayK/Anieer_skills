@@ -1,47 +1,40 @@
 ---
 name: far-repo-governor
-description: Govern safe extraction from an authoritative source into GitHub projections. Use for projection boundaries, registered publishers, remote audits, and projection drift.
+description: "Source-to-GitHub projection governance. Use when contracts, registered publishing, remote audit, or drift repair are needed."
 ---
 
 # Far-repo Governor
 
-Treat an existing source tree as authoritative. A public projection is a generated artifact, not a second editable source.
+Use a one-way chain: **authoritative source -> disposable staging -> registered publisher -> remote**. A public projection is generated output, not an editable source.
 
-## Choose the path
+## Authority
 
-| Repository | Authority | Action |
+| Repository | Authority | Required path |
 | --- | --- | --- |
-| Managed projection | Registered source and publisher | Repair source/publisher, regenerate, then publish. |
-| New projection | Named source module | Define a contract, publisher, checker, register, then publish. |
-| Remote-only | Declared remote branch | Audit first; record its source of truth before editing. |
+| Managed projection | Registered source and publisher | Repair source/publisher, regenerate, publish. |
+| New projection | Named source module | Define contract, publisher, checker, register, publish. |
+| Remote-only | No registered source | Establish contract, staging, checker, publisher, and source first. |
 
-For a managed projection, read `shared/governance/agent_governance.yaml -> managed_platform_publishers`. Never patch its generated checkout or remote directly.
+Read `shared/governance/agent_governance.yaml -> managed_platform_publishers`. Managed staging and remotes are generated outputs. Publish only with a routed task record and external authority.
 
-## Define and generate
+## Run
 
-Start from [references/projection-contract.example.json](references/projection-contract.example.json). A contract names the repository and branch, required and forbidden paths, smallest usable surface, adopter-facing docs/license/tests, and source revision/publisher traceability. Exclude private corpora, credentials, local paths, task records, reports, caches, and unrelated governance.
+1. Define or read [the contract](references/projection-contract.example.json): permitted paths, usable surface, adopter materials, and public-safe provenance. Exclude private material and local/task/report/cache/governance data. Complete when the checker has an authoritative contract.
+2. Generate in disposable staging; keep source unchanged, scrub excluded/machine-specific content, and run the checker and relevant tests. Keep discoverability links in the contract or generator. Complete when staging satisfies the contract.
+3. Audit named public content without broad cloning:
 
-Generate into disposable staging. The publisher must scrub machine-specific or excluded content, leave the source tree unchanged, and run a contract checker plus relevant tests. Register the publisher once; use the aggregate synchronizer thereafter. Record workspace and approved external writes under the routed task record.
+   ```powershell
+   python scripts/audit_remote.py --repo OWNER/REPO --branch main --contract references/projection-contract.example.json
+   ```
 
-## README discoverability
+   Complete when the audit is `PASS`, or a `WARN`/`FAIL` has its required decision or repair.
 
-When a projection has a related, parent, or source repository that users should discover, generate a short, visible README link to it. State the relationship plainly and keep the link in the projection generator or contract—never as a hand patch to generated output. Do not expose private source locations or imply a relationship that the registered contract cannot support.
+4. Publish after required source integration. Use the registered aggregate synchronizer, then confirm remote revision and CI. `FAIL` requires source/publisher repair; `WARN` requires a recorded decision before release. Complete when the remote satisfies the contract.
 
-## Audit and publish
+## Receipt
 
-Audit without cloning broadly:
+State projection scope/mode and publisher authority, task-record and contract/audit artifacts, source/staging/remote revisions with CI, release status, and the repair or authorized next publishing action.
 
-```powershell
-python scripts/audit_remote.py --repo OWNER/REPO --branch main --contract references/projection-contract.example.json
-```
+## Validate
 
-Use `gh api` only for named public files when content review is needed. A failed audit requires a source/publisher repair; a warning needs a documented decision.
-
-For managed repositories: change source and publisher, validate staging, integrate as required by workspace governance, run the registered publisher with its record ID, then confirm the remote revision and CI. For remote-only repositories, record owner authorization, branch, source of truth, and exact file set before a small reviewable API commit or PR; re-audit afterward.
-
-Finish when generated staging and remote satisfy the contract, relevant tests pass, excluded material is absent, and the published revision identifies its source. Run:
-
-```powershell
-python -m unittest discover tests
-python scripts/audit_remote.py --help
-```
+Run `python -m unittest discover tests` and `python scripts/audit_remote.py --help`.
