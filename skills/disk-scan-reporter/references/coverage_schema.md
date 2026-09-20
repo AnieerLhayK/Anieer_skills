@@ -1,7 +1,10 @@
 # Coverage Audit Schema
 
-Coverage is measured against configured scan roots and budgets, not against an
-entire drive.
+Schema 2.0 measures coverage independently for two stages. Inventory coverage
+is limited by its configured drive depth and budget; its byte totals are
+observed lower bounds, not complete directory sizes. Deep-scan coverage is
+measured against each promoted root and its independent budget, plus the
+whole-run deadline.
 
 Each root records:
 
@@ -30,3 +33,9 @@ Statuses:
 A shallow before/after snapshot is diagnostic only. Concurrent applications can
 change a directory during a scan, and unchanged shallow metadata cannot prove
 that file content was untouched.
+
+Inventory aggregates also record the path policy (`hard_protected`,
+`review_only`, or `auto_deep`), observed bytes, threshold, and promotion
+reason. `hard_protected` paths and links are never traversed; `review_only`
+paths can be included in the bounded inventory but are never automatically
+promoted.

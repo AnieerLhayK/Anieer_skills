@@ -200,11 +200,16 @@ def ensure_allowed_write_path(
     path: Path,
     skill_root: Path = SKILL_ROOT,
     policy: dict[str, Any] | None = None,
+    additional_roots: Iterable[Path] = (),
 ) -> Path:
     active_policy = policy or load_audit_policy()
     candidate = Path(os.path.abspath(path))
     resolved_candidate = candidate.resolve(strict=False)
-    for root in allowed_write_roots(skill_root, active_policy):
+    roots = [
+        *allowed_write_roots(skill_root, active_policy),
+        *(Path(os.path.abspath(root)) for root in additional_roots),
+    ]
+    for root in roots:
         try:
             candidate.relative_to(root)
             resolved_candidate.relative_to(root.resolve(strict=False))
@@ -213,7 +218,7 @@ def ensure_allowed_write_path(
         return candidate
     raise PermissionError(
         "output path is outside allowed write roots: "
-        f"{', '.join(active_policy.get('allowed_write_roots', []))}"
+        f"{', '.join(str(root) for root in roots)}"
     )
 
 

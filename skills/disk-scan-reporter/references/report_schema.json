@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "disk-scan-reporter-report-1.0.0",
+  "$id": "disk-scan-reporter-report-2.0.0",
   "title": "Disk Scan Reporter Report",
   "type": "object",
   "required": [
@@ -18,11 +18,12 @@
     "top_large_files",
     "errors",
     "skipped",
-    "safety"
+    "safety",
+    "stages"
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "2.0.0"
     },
     "tool_version": {
       "type": "string",
@@ -162,6 +163,41 @@
     },
     "safety": {
       "type": "object"
+    },
+    "stages": {
+      "type": "object",
+      "required": ["inventory", "deep_scan"],
+      "properties": {
+        "inventory": {
+          "type": "object",
+          "required": ["mode", "drives", "directory_aggregates"],
+          "properties": {
+            "mode": {"const": "bounded_lower_bound"},
+            "drives": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["label", "root", "max_depth", "max_files", "max_seconds", "deep_threshold_bytes"]
+              }
+            },
+            "directory_aggregates": {"type": "array"}
+          }
+        },
+        "deep_scan": {
+          "type": "object",
+          "required": ["mode", "max_files_per_target", "max_seconds_per_target", "max_total_seconds", "targets"],
+          "properties": {
+            "mode": {"const": "full_recursion_with_budget"},
+            "targets": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["path", "status", "terminal_reason", "files_scanned", "dirs_scanned", "file_budget_hit", "time_budget_hit"]
+              }
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

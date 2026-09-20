@@ -21,11 +21,14 @@ python scripts/disk_scan.py --config config/scan_config.json --json-only
 python scripts/disk_scan.py --config config/scan_config.json --md-only
 ```
 
-输出目录在需要时会自动创建。缺失的扫描根目录不会被创建，而是记录在 `skipped` 下。
+输出目录在需要时会自动创建。未指定 `--output` 时，扫描器依次使用
+`AI_TOOL_STAGING_DIR`、Workspace 的 `runtime_roots.staging` 配置、系统临时目录，
+并在其中使用 `disk-scan-reporter/` 子目录。显式输出仍沿用原有的策略批准根目录检查。
+缺失的扫描根目录不会被创建，而是记录在 `skipped` 下。
 
 ## 配置扫描
 
-编辑 `config/scan_config.json`：
+默认两阶段字段见当前 `config/scan_config.json`；以下字段仅适用于兼容的单阶段 `scan_paths` 配置：
 
 - `scan_paths`：要检查的显式根路径。环境变量（如 `%USERPROFILE%` 和 `%LOCALAPPDATA%`）会被展开。
 - `exclude_paths`：要跳过的绝对路径或目录名称。
@@ -39,20 +42,20 @@ python scripts/disk_scan.py --config config/scan_config.json --md-only
 - `audit_policy`：指定同一配置目录中的策略文件名。
 - `report_path_mode`：默认为 `relative`，将本地绝对路径替换为带编号的扫描根标签。仅在报告将保留在本地且需要精确路径时设置为 `absolute`。
 
-不要将整个系统驱动器或整个用户配置文件配置为扫描根目录。默认配置仅扫描 Downloads 和当前用户的本地临时目录。在审查其范围后，明确添加 AI 缓存或数据根目录；默认不要扫描工作区源代码树。
+默认配置使用 `two_stage_plan`：先以 C=3 层、60 秒/10 万文件，D=4 层、120 秒/20 万文件做盘点；这些目录用量都是已观测下界。C 盘严格超过 4 GiB、D 盘严格超过 8 GiB 的合资格目录才晋级完整递归深扫，每个目标最多 180 秒/10 万文件，整次最多 15 分钟。系统路径和链接不遍历；应用、开发根目录与 `${LOCAL_PATH}` 仅盘点，绝不自动晋级。旧的 `scan_paths` 单阶段配置仍受支持。
 
 ## 阅读报告
 
-每次运行都会写入带时间戳的文件：
+每次运行都会在解析后的输出根目录下写入带时间戳的文件：
 
 ```text
-reports/disk_report_YYYY-MM-DD_HHMMSS.md
-reports/disk_report_YYYY-MM-DD_HHMMSS.json
+disk-scan-reporter/disk_report_YYYY-MM-DD_HHMMSS.md
+disk-scan-reporter/disk_report_YYYY-MM-DD_HHMMSS.json
 ```
 
-Markdown 报告总结了扫描范围、跳过的路径、分类错误、逻辑大小和分配大小、硬链接去重、最大的文件、手动审查候选对象、高风险发现以及 `DO_NOT_TOUCH` 路径。
+schema 2.0 的 Markdown 报告分别展示盘点下界、路径策略与晋级决定、深扫覆盖和人工审查候选；盘点使用盘符标签，深扫使用晋级根相对路径。
 
-JSON 报告声明了 `schema_version`、`tool_version` 和确定性的 SHA-256 `config_fingerprint`。机器消费者应验证 `references/report_schema.json` 并拒绝未知的 schema 版本。逻辑字节是稳定的排序基准；分配字节单独报告，当文件系统无法提供完整证据时可能为 `null`。
+JSON 报告声明 `schema_version`、`tool_version` 和确定性的 SHA-256 `config_fingerprint`。读取器兼容历史 schema 1.0；新报告使用 schema 2.0，并应按 `references/report_schema.json` 校验。
 
 使用默认的相对路径模式时，`<scan_root_1>` 等标签映射到本地配置中按顺序排列的 `scan_paths` 条目。这减少了报告共享时用户名和本地布局的泄露。相对模式并非匿名化：每个根目录下的文件名和目录名仍可能包含敏感信息。
 
@@ -64,7 +67,7 @@ JSON 报告声明了 `schema_version`、`tool_version` 和确定性的 SHA-256 `
 python scripts/audit_guard.py
 ```
 
-`config/audit_policy.json` 定义了生产源代码根目录、破坏性 API 和命令标记、允许的运行时写入根目录以及浅快照行为。如果静态审计发现配置了破坏性操作，扫描器将默认失败关闭。报告输出仅接受在 `reports/`、`state/` 或 `logs/` 下，并同时进行词法和解析路径的包含检查。
+`config/audit_policy.json` 定义了生产源代码根目录、破坏性 API 和命令标记、允许的运行时写入根目录以及浅快照行为。如果静态审计发现配置了破坏性操作，扫描器将默认失败关闭。显式报告输出仅接受在 `reports/`、`state/` 或 `logs/` 下；解析出的默认 staging 目录会被单独加入允许列表。两类路径都同时进行词法和解析路径的包含检查。
 
 每份报告包含每个根目录的覆盖信息：
 

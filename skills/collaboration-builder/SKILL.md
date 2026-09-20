@@ -1,11 +1,16 @@
 ---
 name: collaboration-builder
-description: Collaboration operating-model scaffolds. Use when a repository needs a new scaffold or dry-run adoption plan.
+description: Scaffold a YAML-configured collaboration layout with optional AI records, path-scoped sessions, or installable Git hooks.
+disable-model-invocation: true
+metadata:
+  portability: portable
+  distribution: review-required
+  requires: [python, pyyaml, git]
 ---
 
 # Collaboration Builder
 
-Build the **operating model**: one configured source for task boundaries, role ownership, evidence, and handoff. The target repository owns its project facts and policy choices.
+Build a declarative **operating model**. `.collaboration.yaml` is the target repository's source of truth for layout, role paths, root governance and optional controls.
 
 ## Authority
 
@@ -13,19 +18,17 @@ Own scaffold generation, configuration guidance, and read-only validation. Gener
 
 ## Run
 
-1. Inspect the target's entry files, branch policy, roles, generated outputs, and CI. Record only facts required by the scaffold.
-   - Complete when role IDs, candidate writable/protected roots, required checks, and existing entries are identified.
-2. Generate the smallest scaffold.
-   - New or empty target: run `scripts/bootstrap_collaboration.py --target <directory> --project-name <name> --roles <role-a,role-b>`.
-   - Existing target: run the same command with `--dry-run`, then let the owner integrate selected blocks.
-   - Complete when every generated rule has an owner and each role has an isolated root.
-3. In a new or empty target, configure `PROJECT_CONTEXT/roles.yaml` and `task_registry.yaml` from its facts. For an existing target, prepare proposed configuration beside it; its owner integrates it. Read [configuration.md](references/configuration.md) before changing schema or adding a role/task type.
-   - Complete when each task declares `required_read`, `write_scope`, and validation, or the owner has the proposed configuration.
-4. Run `python scripts/validate_collaboration.py <target>` and inspect one route per task with the target's resolver.
-   - Complete when validation passes, no placeholder remains, and one resolver route for every task type matches its configured role boundary.
+1. Inspect the target's entry files and candidate role roots. Select a bundled layout or prepare a `custom` path template. Read [configuration.md](references/configuration.md).
+   - Complete when every role path, governance root and protected/shared root is explicit in YAML.
+2. For a new target, pass an external YAML with `--config`; bootstrap copies its normalized form to the target root. For an existing target, use `--dry-run`; it must not write.
+   - Complete when every generated area is derived from the selected layout rather than a fixed directory convention.
+3. Enable only needed controls under `features`. Read [features.md](references/features.md) before enabling a control.
+   - Complete when generated controls have an explicit owner and installation boundary.
+4. Run `python scripts/validate_collaboration.py <target>`.
+   - Complete when configuration and every enabled feature artifact validate.
 
 ## Receipt
 
 State the scaffold scope/mode, who may integrate it, command and validation artifacts, final status, and whether owner integration is next or validation blocks adoption. Include target state, dry-run status, approved integrations, and configuration sources.
 
-For existing-repository adoption, CI, or a substantial governance upgrade, read [adoption.md](references/adoption.md). The bundled starter is the generated artifact; project-specific source, data, experiments, and results stay in the target repository.
+For existing-repository adoption, read [adoption.md](references/adoption.md). For the old `--roles` entry point, read [migration.md](references/migration.md). Project-specific source, data, experiments and results stay in the target repository.

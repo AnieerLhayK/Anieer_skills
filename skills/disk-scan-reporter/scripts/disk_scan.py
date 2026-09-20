@@ -12,11 +12,14 @@ import json
 import os
 import re
 import stat
+import sys
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+sys.dont_write_bytecode = True
 
 try:
     from scripts.audit_guard import (
@@ -27,6 +30,7 @@ try:
         run_static_audit,
         shallow_snapshot,
     )
+    from scripts.output_paths import default_output_root
 except ModuleNotFoundError:
     from audit_guard import (
         DEFAULT_POLICY_PATH as DEFAULT_AUDIT_POLICY_PATH,
@@ -36,12 +40,14 @@ except ModuleNotFoundError:
         run_static_audit,
         shallow_snapshot,
     )
+    from output_paths import default_output_root
 
 
 MIB = 1024 * 1024
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-REPORT_SCHEMA_VERSION = "1.0.0"
-TOOL_VERSION = "1.5.1"
+REPORT_SCHEMA_VERSION = "2.0.0"
+LEGACY_REPORT_SCHEMA_VERSION = "1.0.0"
+TOOL_VERSION = "2.0.0"
 TEMP_EXTENSIONS = {".tmp", ".temp"}
 ARCHIVE_EXTENSIONS = {".zip", ".7z", ".rar", ".tar", ".gz"}
 CACHE_NAMES = {".cache", "cache"}
@@ -220,6 +226,8 @@ def exclusion_reason(
     path: Path,
     excluded_names: set[str],
     excluded_absolute: set[str],
+    *,
+    use_legacy_protected_names: bool = True,
 ) -> str | None:
     parts = path_parts_lower(path)
     if parts & excluded_names:
@@ -231,7 +239,7 @@ def exclusion_reason(
                 return "matched excluded path"
         except ValueError:
             continue
-    if is_protected(path):
+    if use_legacy_protected_names and is_protected(path):
         return "protected system or source-control path"
     return None
 
@@ -263,7 +271,7 @@ def classify_file(path: Path, size: int, modified: float, config: dict[str, Any]
         return "cache_dir", "MEDIUM", "File is inside a cache directory"
     if parts & BUILD_NAMES:
         return "build_artifact", "MEDIUM", "File is inside a build-output directory"
-    if age_days > old_days:
+    if bool(config.get("old_file_is_candidate", True)) and age_days > old_days:
         return "old_file", "HIGH", f"File has not been modified for more than {old_days:g} days"
     return "unknown", "HIGH", "No safe cleanup classification can be inferred"
 
@@ -503,10 +511,19 @@ def scan_root(
     deadline: float | None = None,
     snapshot_enabled: bool = False,
     snapshot_name_hash: bool = True,
+    rollups: dict[str, dict[str, Any]] | None = None,
+    rollup_paths: list[Path] | None = None,
+    direct_root_rollup: dict[str, Any] | None = None,
 ) -> RootCoverage:
     excluded_names, excluded_absolute = build_exclusions(list(config.get("exclude_paths", [])))
-    max_depth = max(0, int(config.get("max_depth", 8)))
+    hard_protected_absolute = {
+        normalized_path(expand_path(value))
+        for value in config.get("hard_protected_paths", [])
+    }
+    max_depth_raw = config.get("max_depth", 8)
+    max_depth = None if max_depth_raw is None else max(0, int(max_depth_raw))
     follow_links = bool(config.get("follow_symlinks", False))
+    use_legacy_protected_names = bool(config.get("legacy_protected_names", True))
     max_items = max(0, int(config.get("max_report_items", 5000)))
     max_diagnostics = max(0, int(config.get("max_diagnostic_items", 1000)))
     coverage = RootCoverage(planned_root=str(root))
@@ -554,7 +571,12 @@ def scan_root(
             snapshot_name_hash=snapshot_name_hash,
             root=root,
         )
-    reason = exclusion_reason(root, excluded_names, excluded_absolute)
+    reason = exclusion_reason(
+        root,
+        excluded_names,
+        excluded_absolute,
+        use_legacy_protected_names=use_legacy_protected_names,
+    )
     if reason:
         record_skipped(
             state,
@@ -633,7 +655,7 @@ def scan_root(
             state.visited_dirs.add(identity)
             state.total_dirs += 1
             coverage.dirs_scanned += 1
-            if depth >= max_depth:
+            if max_depth is not None and depth >= max_depth:
                 record_skipped(
                     state,
                     current,
@@ -653,13 +675,19 @@ def scan_root(
                         budget_exhausted = True
                         break
                     path = Path(entry.path)
-                    excluded = exclusion_reason(path, excluded_names, excluded_absolute)
+                    excluded = exclusion_reason(
+                        path,
+                        excluded_names,
+                        excluded_absolute,
+                        use_legacy_protected_names=use_legacy_protected_names,
+                    )
                     if excluded:
+                        hard_protected = normalized_path(path) in hard_protected_absolute
                         record_skipped(
                             state,
                             path,
                             excluded,
-                            "DO_NOT_TOUCH" if is_protected(path) else "HIGH",
+                            "DO_NOT_TOUCH" if hard_protected or is_protected(path) else "HIGH",
                             max_diagnostics,
                             coverage=coverage,
                             category="exclusion",
@@ -711,6 +739,36 @@ def scan_root(
                         else:
                             state.observed_allocated_bytes += allocated_size
                             state.allocated_size_files += 1
+                        if direct_root_rollup is not None and path.parent == root:
+                            direct_root_rollup["observed_logical_bytes"] += logical_size
+                            direct_root_rollup["observed_files"] += 1
+                            if allocated_size is None:
+                                direct_root_rollup["allocated_size_complete"] = False
+                            else:
+                                direct_root_rollup["observed_allocated_bytes"] += allocated_size
+                        if rollups is not None and rollup_paths:
+                            for rollup_root in rollup_paths:
+                                try:
+                                    path.relative_to(rollup_root)
+                                except ValueError:
+                                    continue
+                                key = normalized_path(rollup_root)
+                                bucket = rollups.setdefault(
+                                    key,
+                                    {
+                                        "path": str(rollup_root),
+                                        "observed_logical_bytes": 0,
+                                        "observed_allocated_bytes": 0,
+                                        "observed_files": 0,
+                                        "allocated_size_complete": True,
+                                    },
+                                )
+                                bucket["observed_logical_bytes"] += logical_size
+                                bucket["observed_files"] += 1
+                                if allocated_size is None:
+                                    bucket["allocated_size_complete"] = False
+                                else:
+                                    bucket["observed_allocated_bytes"] += allocated_size
                         category, risk, item_reason = classify_file(
                             path,
                             logical_size,
@@ -765,13 +823,38 @@ def load_config(path: Path) -> dict[str, Any]:
         payload = json.load(handle)
     if not isinstance(payload, dict):
         raise ValueError("configuration must be a JSON object")
-    if not isinstance(payload.get("scan_paths"), list) or not payload["scan_paths"]:
-        raise ValueError("scan_paths must be a non-empty list")
-    if not all(isinstance(value, str) and value.strip() for value in payload["scan_paths"]):
+    has_legacy_paths = isinstance(payload.get("scan_paths"), list) and bool(payload["scan_paths"])
+    has_plan = isinstance(payload.get("two_stage_plan"), dict)
+    if not has_legacy_paths and not has_plan:
+        raise ValueError("scan_paths or two_stage_plan must be configured")
+    if has_legacy_paths and not all(
+        isinstance(value, str) and value.strip() for value in payload["scan_paths"]
+    ):
         raise ValueError("scan_paths entries must be non-empty strings")
+    if has_plan:
+        plan = payload["two_stage_plan"]
+        drives = plan.get("drives")
+        if not isinstance(drives, list) or not drives:
+            raise ValueError("two_stage_plan.drives must be a non-empty list")
+        for drive in drives:
+            if not isinstance(drive, dict) or not isinstance(drive.get("root"), str):
+                raise ValueError("each two_stage_plan drive requires a root")
+            for key in (
+                "inventory_max_depth",
+                "inventory_max_files",
+                "inventory_max_seconds",
+                "deep_threshold_gib",
+            ):
+                if key not in drive or float(drive[key]) < 0:
+                    raise ValueError(f"two_stage_plan drive requires non-negative {key}")
+        for key in ("max_total_seconds", "deep_max_files_per_target", "deep_max_seconds_per_target"):
+            if key not in plan or float(plan[key]) < 0:
+                raise ValueError(f"two_stage_plan requires non-negative {key}")
     path_mode = str(payload.get("report_path_mode", "relative")).casefold()
     if path_mode not in PATH_MODES:
         raise ValueError("report_path_mode must be 'relative' or 'absolute'")
+    if has_plan and path_mode != "relative":
+        raise ValueError("two_stage_plan requires report_path_mode 'relative'")
     payload["report_path_mode"] = path_mode
     for key in (
         "max_depth",
@@ -779,7 +862,7 @@ def load_config(path: Path) -> dict[str, Any]:
         "max_diagnostic_items",
         "max_files_per_run",
     ):
-        if int(payload.get(key, 0)) < 0:
+        if payload.get(key) is not None and int(payload.get(key, 0)) < 0:
             raise ValueError(f"{key} must be zero or greater")
     if float(payload.get("max_scan_seconds", 0)) < 0:
         raise ValueError("max_scan_seconds must be zero or greater")
@@ -799,7 +882,10 @@ def config_fingerprint(config: dict[str, Any]) -> str:
 def validate_report(report: dict[str, Any]) -> None:
     if not isinstance(report, dict):
         raise ValueError("report must be a JSON object")
-    if report.get("schema_version") != REPORT_SCHEMA_VERSION:
+    if report.get("schema_version") not in {
+        LEGACY_REPORT_SCHEMA_VERSION,
+        REPORT_SCHEMA_VERSION,
+    }:
         raise ValueError(
             "unsupported report schema version: "
             f"{report.get('schema_version')!r}"
@@ -846,6 +932,18 @@ def validate_report(report: dict[str, Any]) -> None:
     for item in report["errors"]:
         if not isinstance(item, dict) or item.get("category") not in ERROR_CATEGORY_FIELDS:
             raise ValueError("error entries must contain a supported category")
+    if report.get("schema_version") == REPORT_SCHEMA_VERSION:
+        stages = report.get("stages")
+        if not isinstance(stages, dict):
+            raise ValueError("schema 2.0 reports must contain stage details")
+        inventory = stages.get("inventory")
+        deep_scan = stages.get("deep_scan")
+        if not isinstance(inventory, dict) or not isinstance(deep_scan, dict):
+            raise ValueError("schema 2.0 reports must contain inventory and deep_scan stages")
+        if not isinstance(inventory.get("drives"), list) or not isinstance(inventory.get("directory_aggregates"), list):
+            raise ValueError("schema 2.0 inventory stage is malformed")
+        if not isinstance(deep_scan.get("targets"), list):
+            raise ValueError("schema 2.0 deep_scan stage is malformed")
 
 
 def parse_report_json(text: str) -> dict[str, Any]:
@@ -944,7 +1042,7 @@ def build_report(config_path: Path, config: dict[str, Any], state: ScanState) ->
     )
     allocated_complete = state.allocated_size_unavailable_files == 0
     return {
-        "schema_version": REPORT_SCHEMA_VERSION,
+        "schema_version": LEGACY_REPORT_SCHEMA_VERSION,
         "tool_version": TOOL_VERSION,
         "generated_at": generated_at,
         "config_used": display_path(config_path, roots, path_mode),
@@ -1028,7 +1126,58 @@ def build_report(config_path: Path, config: dict[str, Any], state: ScanState) ->
     }
 
 
+def markdown_two_stage_report(report: dict[str, Any]) -> str:
+    inventory = report["stages"]["inventory"]
+    deep_scan = report["stages"]["deep_scan"]
+    aggregates = inventory["directory_aggregates"]
+    targets = deep_scan["targets"]
+    lines = [
+        "# Disk Scan Report",
+        "",
+        f"- Generated at: `{report['generated_at']}`",
+        "- Safety: read-only metadata scan; no cleanup was performed.",
+        "- Inventory totals are observed lower bounds, not complete directory sizes.",
+        "",
+        "## Inventory",
+        "",
+        *([
+            f"- `{row['drive']}` `{row['path']}` — `{row['policy']}`, "
+            f"observed `{row['observed_logical_mb']:.3f}` MiB, promoted `{str(row['promoted']).lower()}`"
+            for row in aggregates[:100]
+        ] or ["- None."]),
+        "",
+        "## Deep Scan Coverage",
+        "",
+        *([
+            f"- `{row['path']}` — `{row['status']}`, files `{row['files_scanned']}`, "
+            f"terminal reason `{row['terminal_reason']}`"
+            for row in targets
+        ] or ["- No directory qualified for automatic deep scan."]),
+        "",
+        "## Manual-Review Candidates",
+        "",
+        *([
+            f"- `{row['risk']}` `{row['category']}` `{row['size_mb']:.3f}` MiB — `{row['path']}`"
+            for row in report["items"][:100]
+        ] or ["- None."]),
+        "",
+        "## Coverage",
+        "",
+        f"- Status: `{report['coverage']['status']}`",
+        f"- Total run budget: `{deep_scan['max_total_seconds']}` seconds",
+        "- A budget or depth stop is partial coverage, never permission to broaden scope.",
+        "",
+        "## Safety Notice",
+        "",
+        "This report does not authorize cleanup. Every item requires manual confirmation.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def markdown_report(report: dict[str, Any]) -> str:
+    if report.get("schema_version") == REPORT_SCHEMA_VERSION:
+        return markdown_two_stage_report(report)
     summary = report["summary"]
     coverage = report["coverage"]
     audit = report["audit"]
@@ -1161,12 +1310,14 @@ def write_reports(
     json_only: bool,
     md_only: bool,
     audit_policy: dict[str, Any] | None = None,
+    additional_write_roots: tuple[Path, ...] = (),
 ) -> list[Path]:
     validate_report(report)
     safe_output = ensure_allowed_write_path(
         output,
         SKILL_ROOT,
         audit_policy or load_audit_policy(),
+        additional_write_roots,
     )
     safe_output.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y-%m-%d_%H%M%S")
@@ -1199,8 +1350,378 @@ def audit_policy_for_config(
     return policy_path, load_audit_policy(policy_path)
 
 
+def path_is_within(path: Path, roots: list[Path]) -> bool:
+    candidate = Path(os.path.abspath(path))
+    for root in roots:
+        try:
+            candidate.relative_to(Path(os.path.abspath(root)))
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def inventory_path(path: Path, drives: list[dict[str, Any]]) -> str:
+    candidate = Path(os.path.abspath(path))
+    for drive in drives:
+        root = expand_path(str(drive["root"]))
+        try:
+            relative = candidate.relative_to(root)
+        except ValueError:
+            continue
+        label = f"<inventory_{str(drive['label']).upper()}>"
+        return label if str(relative) == "." else str(Path(label) / relative)
+    return f"<outside_inventory>/{candidate.name}"
+
+
+def display_stage_coverage(
+    coverage: RootCoverage,
+    actual_roots: list[Path],
+    labels: list[str],
+    index: int,
+) -> dict[str, Any]:
+    payload = asdict(coverage)
+    payload["planned_root"] = labels[index]
+    for key in ("before_snapshot", "after_snapshot"):
+        snapshot = payload.get(key)
+        if snapshot and snapshot.get("error"):
+            message = snapshot["error"]
+            for root, label in zip(actual_roots, labels):
+                message = re.sub(re.escape(str(root)), label, message, flags=re.IGNORECASE)
+            snapshot["error"] = message
+    return payload
+
+
+def policy_for_inventory_path(path: Path, drive: dict[str, Any]) -> str:
+    hard = [expand_path(value) for value in drive.get("hard_protected_paths", [])]
+    if path_is_within(path, hard):
+        return "hard_protected"
+    review = [expand_path(value) for value in drive.get("review_only_paths", [])]
+    if path_is_within(path, review):
+        return "review_only"
+    auto = [expand_path(value) for value in drive.get("auto_deep_paths", [])]
+    if path_is_within(path, auto):
+        return "auto_deep"
+    if bool(drive.get("auto_deep_direct_children", False)):
+        root = expand_path(str(drive["root"]))
+        try:
+            return "auto_deep" if path.parent == root else "review_only"
+        except ValueError:
+            return "review_only"
+    return "review_only"
+
+
+def state_summary(state: ScanState) -> dict[str, Any]:
+    allocated_complete = state.allocated_size_unavailable_files == 0
+    return {
+        "total_files_scanned": state.total_files,
+        "total_dirs_scanned": state.total_dirs,
+        "logical_size_bytes": state.total_logical_bytes,
+        "logical_size_mb": round(state.total_logical_bytes / MIB, 3),
+        "total_size_mb": round(state.total_logical_bytes / MIB, 3),
+        "allocated_size_bytes": state.observed_allocated_bytes if allocated_complete else None,
+        "observed_allocated_size_bytes": state.observed_allocated_bytes,
+        "allocated_size_files": state.allocated_size_files,
+        "allocated_size_unavailable_files": state.allocated_size_unavailable_files,
+        "allocated_size_complete": allocated_complete,
+        "hardlink_duplicates_skipped": state.hardlink_duplicates_skipped,
+        "permission_errors": state.permission_errors,
+        "not_found_errors": state.not_found_errors,
+        "interrupted_errors": state.interrupted_errors,
+        "metadata_errors": state.metadata_errors,
+        "unknown_errors": state.unknown_errors,
+        "total_errors": state.error_count,
+        "unexpected_errors": state.unexpected_errors,
+        "skipped_paths": state.skipped_count,
+        "candidate_items": state.candidate_count,
+        "reported_items": len(state.items),
+        "omitted_items": state.omitted_items,
+        "omitted_errors": state.omitted_errors,
+        "omitted_skipped": state.omitted_skipped,
+    }
+
+
+def merge_states(states: list[ScanState]) -> ScanState:
+    merged = ScanState()
+    for state in states:
+        for key in (
+            "total_files", "total_dirs", "total_logical_bytes", "observed_allocated_bytes",
+            "allocated_size_files", "allocated_size_unavailable_files", "hardlink_duplicates_skipped",
+            "candidate_count", "omitted_items", "error_count", "permission_errors",
+            "not_found_errors", "interrupted_errors", "metadata_errors", "unknown_errors",
+            "skipped_count", "omitted_errors", "omitted_skipped", "unexpected_errors",
+        ):
+            setattr(merged, key, getattr(merged, key) + getattr(state, key))
+        merged.items.extend(state.items)
+        merged.top_large.extend(state.top_large)
+        merged.errors.extend(state.errors)
+        merged.skipped.extend(state.skipped)
+        merged.coverage.extend(state.coverage)
+    return merged
+
+
+def deadline_with_cap(global_deadline: float | None, seconds: float) -> float | None:
+    local = time.monotonic() + seconds if seconds else None
+    if global_deadline is None:
+        return local
+    if local is None:
+        return global_deadline
+    return min(global_deadline, local)
+
+
+def run_two_stage_scan(
+    config_path: Path,
+    config: dict[str, Any],
+    audit_policy: dict[str, Any],
+) -> dict[str, Any]:
+    plan = dict(config["two_stage_plan"])
+    drives = list(plan["drives"])
+    total_seconds = float(plan.get("max_total_seconds", 900))
+    global_deadline = time.monotonic() + total_seconds if total_seconds else None
+    static_audit = run_static_audit(SKILL_ROOT, audit_policy)
+    if static_audit["status"] == "FAIL":
+        raise RuntimeError("safety audit failed; scan was not started")
+    snapshot = audit_policy.get("snapshot", {})
+    snapshot_enabled = bool(snapshot.get("enabled", True))
+    snapshot_name_hash = bool(snapshot.get("include_direct_child_name_hash", True))
+    inventory_rows: list[dict[str, Any]] = []
+    inventory_coverages: list[RootCoverage] = []
+    selected: list[dict[str, Any]] = []
+    for drive in drives:
+        root = expand_path(str(drive["root"]))
+        state = ScanState()
+        rollups: dict[str, dict[str, Any]] = {}
+        root_files = {
+            "observed_logical_bytes": 0,
+            "observed_allocated_bytes": 0,
+            "observed_files": 0,
+            "allocated_size_complete": True,
+        }
+        child_paths: list[Path] = []
+        try:
+            with os.scandir(root) as entries:
+                child_paths = [Path(entry.path) for entry in entries if entry.is_dir(follow_symlinks=False)]
+        except (OSError, PermissionError):
+            child_paths = []
+        rollup_paths = list(child_paths)
+        known_rollups = {normalized_path(item) for item in rollup_paths}
+        for value in list(drive.get("auto_deep_paths", [])) + list(drive.get("review_only_paths", [])):
+            candidate = expand_path(value)
+            if normalized_path(candidate) not in known_rollups:
+                rollup_paths.append(candidate)
+                known_rollups.add(normalized_path(candidate))
+        stage_config = {
+            "exclude_paths": list(drive.get("hard_protected_paths", [])) + [".git"],
+            "hard_protected_paths": list(drive.get("hard_protected_paths", [])),
+            "legacy_protected_names": False,
+            "follow_symlinks": False,
+            "max_depth": int(drive["inventory_max_depth"]),
+            "max_files_per_run": int(drive["inventory_max_files"]),
+            "max_scan_seconds": float(drive["inventory_max_seconds"]),
+            "max_report_items": int(config.get("max_report_items", 5000)),
+            "max_diagnostic_items": int(config.get("max_diagnostic_items", 1000)),
+            "large_file_mb": int(config["large_file_mb"]),
+            "very_large_file_mb": int(config["very_large_file_mb"]),
+            "old_file_days": int(config.get("old_file_days", 30)),
+            "old_file_is_candidate": False,
+        }
+        coverage = scan_root(
+            root,
+            stage_config,
+            state,
+            deadline=deadline_with_cap(global_deadline, float(drive["inventory_max_seconds"])),
+            snapshot_enabled=snapshot_enabled,
+            snapshot_name_hash=snapshot_name_hash,
+            rollups=rollups,
+            rollup_paths=rollup_paths,
+            direct_root_rollup=root_files,
+        )
+        inventory_coverages.append(coverage)
+        inventory_rows.append({
+            "drive": str(drive["label"]).upper(),
+            "path": inventory_path(root, drives),
+            "policy": "review_only",
+            "observed_logical_bytes": int(root_files["observed_logical_bytes"]),
+            "observed_logical_mb": round(int(root_files["observed_logical_bytes"]) / MIB, 3),
+            "observed_files": int(root_files["observed_files"]),
+            "lower_bound": True,
+            "allocated_size_complete": bool(root_files["allocated_size_complete"]),
+            "deep_threshold_bytes": 0,
+            "promoted": False,
+            "promotion_reason": "drive-root files are inventory-only",
+        })
+        all_paths = {normalized_path(item): item for item in child_paths}
+        all_paths.update({normalized_path(item): item for item in rollup_paths})
+        threshold = int(float(drive["deep_threshold_gib"]) * 1024 * MIB)
+        for item_path in all_paths.values():
+            key = normalized_path(item_path)
+            observed = rollups.get(key, {})
+            policy = policy_for_inventory_path(item_path, drive)
+            observed_bytes = int(observed.get("observed_logical_bytes", 0))
+            promoted = policy == "auto_deep" and observed_bytes > threshold
+            reason = (
+                "observed lower bound strictly exceeds the drive threshold"
+                if promoted else (
+                    "not eligible for automatic deep scan by path policy"
+                    if policy != "auto_deep" else "observed lower bound does not exceed the drive threshold"
+                )
+            )
+            row = {
+                "drive": str(drive["label"]).upper(),
+                "path": inventory_path(item_path, drives),
+                "policy": policy,
+                "observed_logical_bytes": observed_bytes,
+                "observed_logical_mb": round(observed_bytes / MIB, 3),
+                "observed_files": int(observed.get("observed_files", 0)),
+                "lower_bound": True,
+                "allocated_size_complete": bool(observed.get("allocated_size_complete", True)),
+                "deep_threshold_bytes": threshold,
+                "promoted": promoted,
+                "promotion_reason": reason,
+            }
+            inventory_rows.append(row)
+            if promoted:
+                selected.append({"root": item_path, "inventory": row})
+    selected.sort(key=lambda item: len(item["root"].parts))
+    deep_targets: list[dict[str, Any]] = []
+    for candidate in selected:
+        if any(path_is_within(candidate["root"], [item["root"]]) for item in deep_targets):
+            candidate["inventory"]["promoted"] = False
+            candidate["inventory"]["promotion_reason"] = "covered by a shallower promoted target"
+            continue
+        deep_targets.append(candidate)
+    deep_states: list[ScanState] = []
+    deep_target_rows: list[dict[str, Any]] = []
+    for target in deep_targets:
+        root = target["root"]
+        drive = next(
+            item for item in drives
+            if path_is_within(root, [expand_path(str(item["root"]))])
+        )
+        state = ScanState()
+        deep_config = {
+            "exclude_paths": list(drive.get("hard_protected_paths", [])) + [".git"],
+            "hard_protected_paths": list(drive.get("hard_protected_paths", [])),
+            "legacy_protected_names": False,
+            "follow_symlinks": False,
+            "max_depth": None,
+            "max_files_per_run": int(plan["deep_max_files_per_target"]),
+            "max_scan_seconds": float(plan["deep_max_seconds_per_target"]),
+            "max_report_items": int(config.get("max_report_items", 5000)),
+            "max_diagnostic_items": int(config.get("max_diagnostic_items", 1000)),
+            "large_file_mb": int(config["large_file_mb"]),
+            "very_large_file_mb": int(config["very_large_file_mb"]),
+            "old_file_days": int(config.get("old_file_days", 30)),
+            "old_file_is_candidate": False,
+        }
+        coverage = scan_root(
+            root,
+            deep_config,
+            state,
+            deadline=deadline_with_cap(global_deadline, float(plan["deep_max_seconds_per_target"])),
+            snapshot_enabled=snapshot_enabled,
+            snapshot_name_hash=snapshot_name_hash,
+        )
+        deep_states.append(state)
+        deep_target_rows.append({
+            "path": inventory_path(root, drives),
+            "status": coverage.status,
+            "terminal_reason": coverage.terminal_reason,
+            "files_scanned": coverage.files_scanned,
+            "dirs_scanned": coverage.dirs_scanned,
+            "file_budget_hit": coverage.file_budget_hit,
+            "time_budget_hit": coverage.time_budget_hit,
+        })
+    deep_state = merge_states(deep_states)
+    deep_roots = [item["root"] for item in deep_targets]
+    displayed_items = sorted(
+        [display_item(item, deep_roots, "relative") for item in deep_state.items],
+        key=lambda item: (RISK_ORDER.get(item["risk"], 0), item["size_mb"]), reverse=True,
+    )
+    combined_coverage = inventory_coverages + deep_state.coverage
+    inventory_roots = [expand_path(str(item["root"])) for item in drives]
+    coverage_roots = inventory_roots + deep_roots
+    coverage_labels = [
+        f"<inventory_{str(item['label']).upper()}>" for item in drives
+    ] + [f"<scan_root_{index}>" for index, _ in enumerate(deep_roots, start=1)]
+    return {
+        "schema_version": REPORT_SCHEMA_VERSION,
+        "tool_version": TOOL_VERSION,
+        "generated_at": datetime.now().astimezone().isoformat(),
+        "config_used": config_path.name,
+        "config_fingerprint": config_fingerprint(config),
+        "scan_paths": [f"<scan_root_{index}>" for index, _ in enumerate(deep_roots, start=1)],
+        "path_reporting": {
+            "mode": "relative",
+            "message": "Inventory paths use drive labels; deep-scan paths are relative to numbered promoted roots.",
+        },
+        "summary": state_summary(deep_state),
+        "coverage": {
+            "status": overall_coverage_status(combined_coverage),
+            "planned_roots": len(combined_coverage),
+            "roots_started": sum(item.started for item in combined_coverage),
+            "roots_completed": sum(item.completed for item in combined_coverage),
+            "file_budget": int(plan["deep_max_files_per_target"]),
+            "time_budget_seconds": float(plan["max_total_seconds"]),
+            "roots": [
+                display_stage_coverage(item, coverage_roots, coverage_labels, index)
+                for index, item in enumerate(combined_coverage)
+            ],
+            "definition": "Coverage is evaluated separately for inventory drives and promoted deep-scan roots.",
+        },
+        "stages": {
+            "inventory": {
+                "mode": "bounded_lower_bound",
+                "description": "Observed directory bytes are lower bounds because configured depth and budgets can stop traversal.",
+                "drives": [
+                    {
+                        "label": str(item["label"]).upper(),
+                        "root": inventory_path(expand_path(str(item["root"])), drives),
+                        "max_depth": int(item["inventory_max_depth"]),
+                        "max_files": int(item["inventory_max_files"]),
+                        "max_seconds": float(item["inventory_max_seconds"]),
+                        "deep_threshold_bytes": int(float(item["deep_threshold_gib"]) * 1024 * MIB),
+                    }
+                    for item in drives
+                ],
+                "directory_aggregates": sorted(inventory_rows, key=lambda item: item["observed_logical_bytes"], reverse=True),
+            },
+            "deep_scan": {
+                "mode": "full_recursion_with_budget",
+                "max_files_per_target": int(plan["deep_max_files_per_target"]),
+                "max_seconds_per_target": float(plan["deep_max_seconds_per_target"]),
+                "max_total_seconds": total_seconds,
+                "targets": deep_target_rows,
+            },
+        },
+        "audit": {
+            "static": static_audit,
+            "snapshot_warnings": sum(
+                1 for item in combined_coverage
+                if item.snapshot_comparison and item.snapshot_comparison.get("status") == "WARNING"
+            ),
+            "limitations": "The scan reads metadata only and cannot prove arbitrary file content was untouched.",
+        },
+        "items": displayed_items,
+        "top_large_files": [
+            display_item(row[2], deep_roots, "relative")
+            for row in sorted(deep_state.top_large, key=lambda row: row[0], reverse=True)
+        ],
+        "errors": [display_diagnostic(item, deep_roots, "relative") for item in deep_state.errors],
+        "skipped": [display_diagnostic(item, deep_roots, "relative") for item in deep_state.skipped],
+        "safety": {
+            "read_only": True,
+            "cleanup_performed": False,
+            "message": "Manual review only. This report does not authorize or perform cleanup.",
+        },
+    }
+
+
 def run_scan(config_path: Path, output: Path, max_depth: int | None = None) -> dict[str, Any]:
     config = load_config(config_path)
+    if "two_stage_plan" in config:
+        _, audit_policy = audit_policy_for_config(config_path, config)
+        return run_two_stage_scan(Path(os.path.abspath(config_path)), config, audit_policy)
     if max_depth is not None:
         config["max_depth"] = max_depth
     _, audit_policy = audit_policy_for_config(config_path, config)
@@ -1280,7 +1801,7 @@ def report_exit_code(report: dict[str, Any]) -> int:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument("--output", type=Path, default=Path("reports"))
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--max-depth", type=int)
     output_group = parser.add_mutually_exclusive_group()
     output_group.add_argument("--json-only", action="store_true")
@@ -1290,9 +1811,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    output = args.output or default_output_root()
+    default_write_roots = (output,) if args.output is None else ()
     exit_code = 0
     try:
-        report = run_scan(args.config, args.output, args.max_depth)
+        report = run_scan(args.config, output, args.max_depth)
     except Exception as exc:
         exit_code = 1
         now = datetime.now().astimezone().isoformat()
@@ -1301,7 +1824,7 @@ def main() -> int:
             error_text = error_text.replace(value, args.config.name)
         fallback_config: dict[str, Any] = {}
         report = {
-            "schema_version": REPORT_SCHEMA_VERSION,
+            "schema_version": LEGACY_REPORT_SCHEMA_VERSION,
             "tool_version": TOOL_VERSION,
             "generated_at": now,
             "config_used": args.config.name,
@@ -1383,9 +1906,10 @@ def main() -> int:
     try:
         written = write_reports(
             report,
-            args.output,
+            output,
             json_only=args.json_only,
             md_only=args.md_only,
+            additional_write_roots=default_write_roots,
         )
     except OSError as exc:
         print(f"ERROR: unable to write report output: {exc}")

@@ -1,25 +1,40 @@
 {
-  "scan_paths": [
-    "%USERPROFILE%\\Downloads",
-    "%LOCALAPPDATA%\\Temp"
-  ],
-  "exclude_paths": [
-    "C:\\Windows",
-    "C:\\Program Files",
-    "C:\\Program Files (x86)",
-    "C:\\System Volume Information",
-    "$Recycle.Bin",
-    ".git"
-  ],
-  "large_file_mb": 500,
-  "very_large_file_mb": 1024,
-  "old_file_days": 60,
-  "max_depth": 4,
-  "follow_symlinks": false,
+  "two_stage_plan": {
+    "max_total_seconds": 900,
+    "deep_max_files_per_target": 100000,
+    "deep_max_seconds_per_target": 180,
+    "drives": [
+      {
+        "label": "C",
+        "root": "C:\\",
+        "inventory_max_depth": 3,
+        "inventory_max_files": 100000,
+        "inventory_max_seconds": 60,
+        "deep_threshold_gib": 4,
+        "hard_protected_paths": ["C:\\$Recycle.Bin", "C:\\Documents and Settings", "C:\\Recovery", "C:\\System Volume Information", "C:\\Windows", "C:\\hiberfil.sys", "C:\\pagefile.sys", "C:\\swapfile.sys"],
+        "review_only_paths": ["C:\\Program Files", "C:\\Program Files (x86)", "C:\\ProgramData", "C:\\Qt", "C:\\inetpub"],
+        "auto_deep_paths": ["%USERPROFILE%", "C:\\OneDriveTemp"],
+        "auto_deep_direct_children": false
+      },
+      {
+        "label": "D",
+        "root": "D:\\",
+        "inventory_max_depth": 4,
+        "inventory_max_files": 200000,
+        "inventory_max_seconds": 120,
+        "deep_threshold_gib": 8,
+        "hard_protected_paths": ["D:\\$RECYCLE.BIN", "D:\\System Volume Information"],
+        "review_only_paths": ["D:\\AI", "D:\\AI\\data\\codex", "D:\\AppsData", "D:\\CODER", "D:\\Dev", "D:\\Git", "D:\\Program Files", "D:\\ProgramData", "D:\\SDK", "D:\\SteamLibrary", "D:\\VScodeCPP", "D:\\WeGame", "D:\\WeGameApps", "D:\\opencode"],
+        "auto_deep_paths": [],
+        "auto_deep_direct_children": true
+      }
+    ]
+  },
+  "large_file_mb": 1024,
+  "very_large_file_mb": 4096,
+  "old_file_days": 30,
   "max_report_items": 5000,
   "max_diagnostic_items": 1000,
-  "max_files_per_run": 100000,
-  "max_scan_seconds": 120,
   "audit_policy": "audit_policy.json",
   "report_path_mode": "relative"
 }

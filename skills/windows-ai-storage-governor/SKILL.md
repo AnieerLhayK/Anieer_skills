@@ -1,6 +1,10 @@
 ---
 name: windows-ai-storage-governor
-description: Windows AI-storage governance. Use when bounded audit, reversible planning, or verification is needed.
+description: Audit, classify, plan, or verify migration of named Windows AI-tool storage; use for tool state, not broad disk-capacity reporting.
+metadata:
+  portability: host-adapted
+  distribution: review-required
+  requires: [windows-powershell, host-write-authorization]
 ---
 
 # Windows AI Storage Governor

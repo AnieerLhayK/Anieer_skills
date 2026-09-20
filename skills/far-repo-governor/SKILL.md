@@ -1,6 +1,10 @@
 ---
 name: far-repo-governor
 description: "Source-to-GitHub projection governance. Use when contracts, registered publishing, remote audit, or drift repair are needed."
+metadata:
+  portability: host-adapted
+  distribution: review-required
+  requires: [python, git, github, registered-publisher]
 ---
 
 # Far-repo Governor

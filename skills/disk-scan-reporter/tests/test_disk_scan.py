@@ -29,6 +29,7 @@ from scripts.disk_scan import (
     run_scan,
     scan_root,
 )
+from scripts.output_paths import default_output_root
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,56 @@ SCHEMA_PATH = SKILL_ROOT / "references" / "report_schema.json"
 
 
 class DiskScanTests(unittest.TestCase):
+    def test_default_output_prefers_environment_staging(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            staging = Path(temp) / "configured"
+            output = default_output_root(
+                environment={"AI_TOOL_STAGING_DIR": str(staging)},
+                manifest_path=Path(temp) / "missing-manifest.json",
+                temp_root=Path(temp) / "fallback",
+            )
+            self.assertEqual(output, staging.resolve() / "disk-scan-reporter")
+
+    def test_default_output_uses_host_manifest_then_system_temp(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            manifest = root / "manifest.json"
+            staging = root / "host-staging"
+            manifest.write_text(
+                json.dumps({"runtime_roots": {"staging": str(staging)}}),
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                default_output_root(
+                    environment={}, manifest_path=manifest, temp_root=root / "fallback"
+                ),
+                staging.resolve() / "disk-scan-reporter",
+            )
+            manifest.write_text("{}", encoding="utf-8")
+            self.assertEqual(
+                default_output_root(
+                    environment={}, manifest_path=manifest, temp_root=root / "fallback"
+                ),
+                (root / "fallback" / "disk-scan-reporter").resolve(),
+            )
+
+    def test_cli_without_output_writes_to_environment_staging(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            environment = os.environ.copy()
+            environment["AI_TOOL_STAGING_DIR"] = str(root / "staging")
+            result = subprocess.run(
+                [sys.executable, "-B", str(SCRIPT_PATH), "--config", str(root / "missing.json")],
+                cwd=root,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            reports = list((root / "staging" / "disk-scan-reporter").glob("*.json"))
+            self.assertEqual(len(reports), 1)
+
     def base_config(self, root: Path) -> dict[str, object]:
         return {
             "scan_paths": [str(root)],
@@ -84,6 +135,95 @@ class DiskScanTests(unittest.TestCase):
         )
         self.assertEqual(category, "old_file")
         self.assertEqual(risk, "HIGH")
+
+    def test_old_file_can_be_auxiliary_only(self) -> None:
+        old = (datetime.now(timezone.utc) - timedelta(days=90)).timestamp()
+        config = self.base_config(Path("."))
+        config["old_file_is_candidate"] = False
+        category, risk, _ = classify_file(Path("notes.txt"), 12, old, config)
+        self.assertEqual(category, "unknown")
+        self.assertEqual(risk, "HIGH")
+
+    def test_two_stage_plan_reports_lower_bounds_and_path_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            c_root = root / "c"
+            d_root = root / "d"
+            current_user = c_root / "Users" / "current"
+            data = d_root / "data"
+            codex_data = d_root / "AI" / "data" / "codex"
+            system = d_root / "System Volume Information"
+            for path in (current_user, data, codex_data, system):
+                path.mkdir(parents=True, exist_ok=True)
+            (current_user / "profile.log").write_text("x", encoding="utf-8")
+            (data / "data.log").write_text("x", encoding="utf-8")
+            (codex_data / "protected.log").write_text("x", encoding="utf-8")
+            config = {
+                "two_stage_plan": {
+                    "max_total_seconds": 60,
+                    "deep_max_files_per_target": 100,
+                    "deep_max_seconds_per_target": 30,
+                    "drives": [
+                        {
+                            "label": "C",
+                            "root": str(c_root),
+                            "inventory_max_depth": 4,
+                            "inventory_max_files": 100,
+                            "inventory_max_seconds": 30,
+                            "deep_threshold_gib": 0,
+                            "hard_protected_paths": [],
+                            "review_only_paths": [],
+                            "auto_deep_paths": [str(current_user)],
+                            "auto_deep_direct_children": False,
+                        },
+                        {
+                            "label": "D",
+                            "root": str(d_root),
+                            "inventory_max_depth": 4,
+                            "inventory_max_files": 100,
+                            "inventory_max_seconds": 30,
+                            "deep_threshold_gib": 0,
+                            "hard_protected_paths": [str(system)],
+                            "review_only_paths": [str(d_root / "AI"), str(codex_data)],
+                            "auto_deep_paths": [],
+                            "auto_deep_direct_children": True,
+                        },
+                    ],
+                },
+                "large_file_mb": 1,
+                "very_large_file_mb": 2,
+                "old_file_days": 30,
+                "max_report_items": 100,
+                "max_diagnostic_items": 100,
+                "report_path_mode": "relative",
+            }
+            config_path = root / "plan.json"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            report = run_scan(config_path, root / "reports")
+            self.assertEqual(report["schema_version"], REPORT_SCHEMA_VERSION)
+            self.assertEqual(report["stages"]["inventory"]["mode"], "bounded_lower_bound")
+            self.assertEqual(report["coverage"]["roots"][0]["planned_root"], "<inventory_C>")
+            aggregates = report["stages"]["inventory"]["directory_aggregates"]
+            data_row = next(row for row in aggregates if row["path"].endswith("data"))
+            codex_row = next(row for row in aggregates if row["path"].endswith("AI\\data\\codex"))
+            self.assertTrue(data_row["lower_bound"])
+            self.assertTrue(data_row["promoted"])
+            self.assertEqual(codex_row["policy"], "review_only")
+            self.assertFalse(codex_row["promoted"])
+            system_row = next(row for row in aggregates if row["path"].endswith("System Volume Information"))
+            self.assertEqual(system_row["policy"], "hard_protected")
+            self.assertNotIn(str(root), json.dumps(report))
+            self.assertEqual(parse_report_json(json.dumps(report)), report)
+            one_byte_gib = 1 / (1024 * MIB)
+            for drive in config["two_stage_plan"]["drives"]:
+                drive["deep_threshold_gib"] = one_byte_gib
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            strict_report = run_scan(config_path, root / "reports")
+            self.assertEqual(strict_report["stages"]["deep_scan"]["targets"], [])
+            config["report_path_mode"] = "absolute"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "requires report_path_mode 'relative'"):
+                run_scan(config_path, root / "reports")
 
     def test_exclude_paths_take_effect(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

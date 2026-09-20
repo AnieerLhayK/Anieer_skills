@@ -26,62 +26,50 @@ python scripts/disk_scan.py --config config/scan_config.json --json-only
 python scripts/disk_scan.py --config config/scan_config.json --md-only
 ```
 
-The output directory is created when needed. Missing scan roots are not created;
-they are recorded under `skipped`.
+The output directory is created when needed. With no `--output`, the scanner
+uses `AI_TOOL_STAGING_DIR`, then the Workspace `runtime_roots.staging` setting,
+then the system temporary directory, always under `disk-scan-reporter/`.
+An explicit output keeps the legacy policy-approved-root checks. Missing scan
+roots are not created; they are recorded under `skipped`.
 
 ## Configure the Scan
 
-Edit `config/scan_config.json`:
+The default `two_stage_plan` inventories C and D before it deep-scans anything.
+It observes C to depth 3 (60 seconds / 100,000 files) and D to depth 4 (120
+seconds / 200,000 files). These directory totals are lower bounds, not a claim
+of complete drive usage.
 
-- `scan_paths`: explicit roots to inspect. Environment variables such as
-  `%USERPROFILE%` and `%LOCALAPPDATA%` are expanded.
-- `exclude_paths`: absolute paths or directory names to skip.
-- `large_file_mb`, `very_large_file_mb`, `old_file_days`: classification
-  thresholds.
-- `max_depth`: recursion limit below each configured root.
-- `follow_symlinks`: defaults to `false`; keep it false unless link traversal is
-  explicitly required.
-- `max_report_items`: bounds detailed candidate records while summary counters
-  continue to reflect the scan.
-- `max_diagnostic_items`: independently bounds stored error and skipped-path
-  details while preserving total counters.
-- `max_files_per_run`: stops traversal after the configured number of observed
-  files and reports `PARTIAL_BUDGET_EXHAUSTED`.
-- `max_scan_seconds`: bounds elapsed traversal time for the complete run.
-- `audit_policy`: names the policy file in the same configuration directory.
-- `report_path_mode`: defaults to `relative`, replacing local absolute paths
-  with numbered scan-root labels. Set it to `absolute` only when the report
-  will remain local and exact paths are required.
+Only eligible paths whose observed bytes strictly exceed 4 GiB on C or 8 GiB
+on D are promoted. Promoted roots recurse without a depth limit, but each has a
+180-second / 100,000-file budget and the full run has a 15-minute ceiling.
+System paths and links are never traversed. Application and development roots
+are inventory-only; notably `${LOCAL_PATH}` is review-only and cannot be
+auto-promoted. `large_file_mb` and `very_large_file_mb` are 1 GiB and 4 GiB;
+file age is review context rather than a candidate rule.
 
-Do not configure a whole system drive or whole user profile as a scan root.
-The shipped configuration scans only Downloads and the current user's local
-temporary directory. Add AI cache or data roots explicitly after reviewing
-their scope; do not scan the workspace source tree by default.
+`scan_paths` remains supported for legacy single-stage configurations. Keep
+reports in relative-path mode when they may be shared.
 
 ## Read the Reports
 
-Each run writes timestamped files:
+Each run writes timestamped files below the resolved output root:
 
 ```text
-reports/disk_report_YYYY-MM-DD_HHMMSS.md
-reports/disk_report_YYYY-MM-DD_HHMMSS.json
+disk-scan-reporter/disk_report_YYYY-MM-DD_HHMMSS.md
+disk-scan-reporter/disk_report_YYYY-MM-DD_HHMMSS.json
 ```
 
-The Markdown report summarizes scope, skipped paths, categorized errors,
-logical and allocated size, hardlink de-duplication, top large files,
-manual-review candidates, high-risk findings, and `DO_NOT_TOUCH` paths.
+Schema 2.0 reports separate inventory lower bounds, path-policy and promotion
+decisions, deep-scan coverage, and manual-review candidates. Inventory uses
+drive labels; deep-scan paths use relative promoted-root labels.
 
 The JSON report declares `schema_version`, `tool_version`, and a deterministic
-SHA-256 `config_fingerprint`. Machine consumers should validate
-`references/report_schema.json` and reject unknown schema versions. Logical
-bytes are the stable ranking basis; allocated bytes are reported separately
-and may be `null` when the filesystem cannot provide complete evidence.
+SHA-256 `config_fingerprint`. Readers accept historical schema 1.0 reports;
+new reports use schema 2.0 and should validate against
+`references/report_schema.json`.
 
-With the default relative path mode, `<scan_root_1>` and similar labels map to
-the ordered `scan_paths` entries in the local configuration. This reduces
-username and local-layout disclosure when a report is shared. Relative mode is
-not anonymization: filenames and directory names below each root can still be
-sensitive.
+Relative mode reduces local-layout disclosure but is not anonymization:
+filenames and directory names below promoted roots can still be sensitive.
 
 ## Safety and Coverage Audits
 
@@ -94,8 +82,9 @@ python scripts/audit_guard.py
 `config/audit_policy.json` defines production source roots, destructive APIs and
 command tokens, allowed runtime write roots, and shallow snapshot behavior.
 The scanner fails closed if the static audit finds a configured destructive
-operation. Report output is accepted only under `reports/`, `state/`, or
-`logs/`, with both lexical and resolved-path containment checks.
+operation. Explicit report output is accepted only under `reports/`, `state/`,
+or `logs/`; the resolved default staging directory is separately allowlisted.
+Both paths use lexical and resolved-path containment checks.
 
 Each report includes per-root coverage:
 

@@ -1,26 +1,30 @@
 ---
 name: disk-scan-reporter
-description: Bounded disk-scan reports. Use when Windows storage needs read-only reporting and manual review, not cleanup.
+description: Inventory Windows disk usage with bounded, read-only coverage reporting; use for capacity evidence, not AI-tool migration or cleanup.
+metadata:
+  portability: host-adapted
+  distribution: review-required
+  requires: [windows, python]
 ---
 
 # Disk Scan Reporter
 
-Produce metadata-only storage evidence. The scan configuration and audit policy define the boundary; candidates remain candidates for manual review.
+Produce metadata-only storage evidence. The configured two-stage plan defines the boundary; candidates remain candidates for manual review.
 
 ## Authority
 
-Read only configured or explicitly supplied roots and their permitted metadata. The only allowed side effect is writing Markdown and JSON reports to policy-approved output roots. Do not broaden a scan to a drive or profile, follow links unless configured, request elevation, alter system/tool settings, or turn a finding into cleanup authority.
+Read only configured roots and permitted metadata. The only allowed side effect is writing Markdown and JSON reports to policy-approved output roots. Do not follow links, request elevation, alter system/tool settings, or turn a finding into cleanup authority.
 
 ## Run
 
-1. Inspect `config/scan_config.json` and its audit policy. Keep roots bounded, file/time budgets enabled, and relative report paths for shared output. Complete when the configuration and output boundary are known.
+1. Inspect `config/scan_config.json` and its audit policy. For the default C/D plan, confirm inventory depths and budgets, automatic deep-scan thresholds, hard-protected paths, and `review_only` paths. Complete when both stages and the output boundary are known.
 2. Run `python scripts/audit_guard.py`. A `FAIL` stops the scan. Complete when the audit status is recorded.
-3. Run `python scripts/disk_scan.py --config config/scan_config.json`; use its output option only within approved report roots. Complete when the report is written or its failure is reported.
-4. Read the generated report's safety audit, coverage, budgets, skipped paths, and categorized errors before ranking candidates. Use [coverage_schema.md](references/coverage_schema.md) and [report_schema.json](references/report_schema.json) for machine interpretation. Treat budget exhaustion as partial coverage, not a reason to broaden scope or privileges. Complete when its coverage state is classified.
+3. Run the absolute `scripts/disk_scan.py` path with `--config`. Without `--output`, reports resolve through `AI_TOOL_STAGING_DIR`, the Workspace staging root, then the system temp directory. An explicit `--output` retains the existing policy-approved-root behavior. Complete when the report is written or its failure is reported.
+4. Read the generated report's inventory lower bounds, promotion reasons, deep-scan coverage, budgets, skipped paths, and categorized errors before ranking candidates. Use [coverage_schema.md](references/coverage_schema.md) and [report_schema.json](references/report_schema.json) for machine interpretation. Treat depth or budget exhaustion as partial coverage, not a reason to broaden scope or privileges. Complete when each stage's coverage state is classified.
 
 ## Receipt
 
-State root scope/mode and read-only authority; identify the configuration, static-audit, and report artifacts; give the coverage status; and name the stop condition or authorized manual-review next step. Include fingerprint, budgets, skips/errors, and path mode. State `COMPLETE_WITHIN_CONFIG`, the reported partial state, or failure exactly as the report does.
+State the inventory and deep-scan scope, read-only authority, configuration, static-audit, report artifacts, lower-bound caveat, coverage status, and stop condition. Include the fingerprint, budgets, promotion decisions, skips/errors, and path mode. State `COMPLETE_WITHIN_CONFIG`, the reported partial state, or failure exactly as the report does.
 
 ## Validate
 
@@ -34,4 +38,4 @@ python scripts/disk_scan.py --config config/scan_config.json
 
 The tests use temporary fixtures. The audit command statically checks production
 scripts for configured destructive APIs and commands. The final command performs
-the configured read-only scan and may record missing or inaccessible paths.
+the configured read-only C/D plan and may record missing or inaccessible paths.
