@@ -20,7 +20,6 @@ python scripts/disk_scan.py --config config/scan_config.json
 Optional controls:
 
 ```powershell
-python scripts/disk_scan.py --config config/scan_config.json --output reports
 python scripts/disk_scan.py --config config/scan_config.json --max-depth 6
 python scripts/disk_scan.py --config config/scan_config.json --json-only
 python scripts/disk_scan.py --config config/scan_config.json --md-only
@@ -29,7 +28,9 @@ python scripts/disk_scan.py --config config/scan_config.json --md-only
 The output directory is created when needed. With no `--output`, the scanner
 uses `AI_TOOL_STAGING_DIR`, then the Workspace `runtime_roots.staging` setting,
 then the system temporary directory, always under `disk-scan-reporter/`.
-An explicit output keeps the legacy policy-approved-root checks. Missing scan
+An explicit output keeps the legacy policy-approved-root checks for existing
+callers; new automation should omit `--output` and keep reports outside source.
+Missing scan
 roots are not created; they are recorded under `skipped`.
 
 ## Configure the Scan

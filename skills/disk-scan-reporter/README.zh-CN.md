@@ -15,7 +15,6 @@ python scripts/disk_scan.py --config config/scan_config.json
 可选控制参数：
 
 ```powershell
-python scripts/disk_scan.py --config config/scan_config.json --output reports
 python scripts/disk_scan.py --config config/scan_config.json --max-depth 6
 python scripts/disk_scan.py --config config/scan_config.json --json-only
 python scripts/disk_scan.py --config config/scan_config.json --md-only
@@ -23,7 +22,8 @@ python scripts/disk_scan.py --config config/scan_config.json --md-only
 
 输出目录在需要时会自动创建。未指定 `--output` 时，扫描器依次使用
 `AI_TOOL_STAGING_DIR`、Workspace 的 `runtime_roots.staging` 配置、系统临时目录，
-并在其中使用 `disk-scan-reporter/` 子目录。显式输出仍沿用原有的策略批准根目录检查。
+并在其中使用 `disk-scan-reporter/` 子目录。显式输出仍沿用原有的策略批准根目录检查，
+以兼容既有调用方；新自动任务应省略 `--output`，将报告保存在 source 之外。
 缺失的扫描根目录不会被创建，而是记录在 `skipped` 下。
 
 ## 配置扫描

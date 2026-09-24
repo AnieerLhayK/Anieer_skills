@@ -11,6 +11,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from scripts import disk_scan_engine
+from scripts import disk_scan_policy, disk_scan_rendering, disk_scan_schema
 from scripts.disk_scan import (
     MIB,
     REPORT_SCHEMA_VERSION,
@@ -38,6 +40,24 @@ SCHEMA_PATH = SKILL_ROOT / "references" / "report_schema.json"
 
 
 class DiskScanTests(unittest.TestCase):
+    def test_legacy_module_exports_engine_types_without_a_proxy_layer(self) -> None:
+        """The thin CLI module preserves import identity for established callers."""
+        self.assertIs(ScanState, disk_scan_engine.ScanState)
+        self.assertIs(RootCoverage, disk_scan_engine.RootCoverage)
+
+    def test_engine_uses_responsibility_owned_modules(self) -> None:
+        """The compatibility engine calls real modules rather than re-export stubs."""
+        self.assertIs(disk_scan_engine.load_config, disk_scan_schema.load_config)
+        self.assertIs(disk_scan_engine.exclusion_reason, disk_scan_policy.exclusion_reason)
+        self.assertIs(disk_scan_engine.build_report, disk_scan_rendering.build_report)
+        self.assertIs(disk_scan_engine.write_reports, disk_scan_rendering.write_reports)
+        self.assertIs(disk_scan_engine.policy_for_inventory_path, disk_scan_policy.policy_for_inventory_path)
+        self.assertIs(disk_scan_engine.audit_policy_for_config, disk_scan_policy.audit_policy_for_config)
+        self.assertEqual(disk_scan_engine.MIB, disk_scan_rendering.MIB)
+        self.assertEqual(disk_scan_engine.TOOL_VERSION, disk_scan_rendering.TOOL_VERSION)
+        self.assertIs(disk_scan_engine.RISK_ORDER, disk_scan_rendering.RISK_ORDER)
+        self.assertIs(disk_scan_engine.COVERAGE_PRIORITY, disk_scan_rendering.COVERAGE_PRIORITY)
+
     def test_default_output_prefers_environment_staging(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             staging = Path(temp) / "configured"

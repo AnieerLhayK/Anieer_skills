@@ -4,7 +4,7 @@ description: Inventory Windows disk usage with bounded, read-only coverage repor
 metadata:
   portability: host-adapted
   distribution: review-required
-  requires: [windows, python]
+  requires: [windows, python, optional-workspace-manifest]
 ---
 
 # Disk Scan Reporter
