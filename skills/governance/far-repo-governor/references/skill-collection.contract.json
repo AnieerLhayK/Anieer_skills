@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0",
+  "skills": {
+    "engineering/agengrator": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "assets/**/*.md",
+      "references/*.md",
+      "scripts/*.py",
+      "tests/*.py"
+    ],
+    "productivity/collaboration-builder": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "assets/starter/**",
+      "config/**/*.yaml",
+      "references/*.md",
+      "scripts/*.py",
+      "tests/*.py"
+    ],
+    "governance/disk-scan-reporter": [
+      ".gitignore",
+      "README.md",
+      "README.zh-CN.md",
+      "SKILL.md",
+      "agents/openai.yaml",
+      "assets/*.md",
+      "config/*.json",
+      "references/*.md",
+      "references/*.json",
+      "scripts/*.py",
+      "scripts/*.md",
+      "tests/*.py",
+      "tests/*.md"
+    ],
+    "governance/far-repo-governor": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "assets/licenses/MIT.txt",
+      "references/*.json",
+      "scripts/*.py",
+      "tests/*.py"
+    ],
+    "governance/kill-for-remote": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "references/*.md",
+      "references/*.json",
+      "scripts/*.py",
+      "scripts/*.ps1"
+    ],
+    "content/mardocx": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "assets/*.yaml",
+      "references/*.md",
+      "scripts/*.py",
+      "tests/*.py"
+    ],
+    "content/showcase-packer": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "references/*.md",
+      "scripts/*.py",
+      "tests/*.py"
+    ],
+    "engineering/skill-adaptator": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "references/*.md",
+      "scripts/*.py"
+    ],
+    "engineering/skill-migrator": [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "references/*.md",
+      "scripts/*.py",
+      "tests/*.py"
+    ],
+    "governance/windows-ai-storage-governor": [
+      ".gitignore",
+      "SKILL.md",
+      "agents/openai.yaml",
+      "fixtures/*.json",
+      "references/*.md",
+      "scripts/*.ps1",
+      "tests/*.py"
+    ]
+  }
+}

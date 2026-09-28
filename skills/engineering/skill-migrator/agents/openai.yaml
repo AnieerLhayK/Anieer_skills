@@ -1,0 +1,6 @@
+interface:
+  display_name: "Skill Migrator"
+  short_description: "Review and adapt external skills safely"
+  default_prompt: "Use $skill-migrator to review and migrate selected skills from this external checkout."
+policy:
+  allow_implicit_invocation: false

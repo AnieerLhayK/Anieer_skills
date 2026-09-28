@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {"$ref": "#/$defs/remoteOnlyPlan"},
+    {"$ref": "#/$defs/localDirectoryPlan"}
+  ],
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "required": ["repository_id", "canonical_path", "audit_fingerprint", "resource_fingerprint", "candidates"],
+      "properties": {
+        "repository_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "canonical_path": {"type": "string", "minLength": 3},
+        "audit_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "resource_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "candidates": {"type": "array"}
+      }
+    },
+    "remoteOnlyPlan": {
+      "allOf": [
+        {"$ref": "#/$defs/identity"},
+        {"type": "object", "required": ["schema_version", "repository_id", "canonical_path", "audit_fingerprint", "resource_fingerprint", "candidates"], "additionalProperties": false,
+          "properties": {"schema_version": {"const": "1.0"}, "repository_id": {"type": "string"}, "canonical_path": {"type": "string"}, "audit_fingerprint": {"type": "string"}, "resource_fingerprint": {"type": "string"}, "candidates": {"type": "array", "items": {"$ref": "#/$defs/remoteCandidate"}}}}
+      ]
+    },
+    "remoteCandidate": {
+      "oneOf": [
+        {"type": "object", "required": ["relative_path", "action"], "additionalProperties": false, "properties": {"relative_path": {"type": "string", "minLength": 1}, "action": {"const": "recycle"}}},
+        {"type": "object", "required": ["relative_path", "action", "destination_path"], "additionalProperties": false, "properties": {"relative_path": {"type": "string", "minLength": 1}, "action": {"const": "preserve"}, "destination_path": {"type": "string", "minLength": 3}}}
+      ]
+    },
+    "localDirectoryPlan": {
+      "allOf": [
+        {"$ref": "#/$defs/identity"},
+        {"type": "object", "required": ["schema_version", "retirement_mode", "repository_id", "canonical_path", "audit_fingerprint", "resource_fingerprint", "ignored_inventory_fingerprint", "candidates", "local_retained_paths"], "additionalProperties": false,
+          "properties": {"schema_version": {"const": "1.1"}, "retirement_mode": {"const": "local-directory"}, "repository_id": {"type": "string"}, "canonical_path": {"type": "string"}, "audit_fingerprint": {"type": "string"}, "resource_fingerprint": {"type": "string"}, "ignored_inventory_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "candidates": {"type": "array", "items": {"type": "object", "required": ["relative_path", "action"], "additionalProperties": false, "properties": {"relative_path": {"type": "string", "minLength": 1}, "action": {"enum": ["recycle", "retain_local"]}}}},
+            "local_retained_paths": {"type": "array", "items": {"type": "object", "required": ["relative_path"], "additionalProperties": false, "properties": {"relative_path": {"type": "string", "minLength": 1}}}}}}
+      ]
+    }
+  }
+}

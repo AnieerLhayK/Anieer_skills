@@ -1,0 +1,4 @@
+id: isolated-areas
+required_variables: []
+role_path: areas/{role}
+shared_roots: []

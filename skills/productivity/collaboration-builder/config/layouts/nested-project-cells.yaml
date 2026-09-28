@@ -1,0 +1,4 @@
+id: nested-project-cells
+required_variables: [workspace]
+role_path: workspaces/{workspace}/areas/{role}
+shared_roots: []

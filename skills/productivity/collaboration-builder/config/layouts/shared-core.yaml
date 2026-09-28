@@ -1,0 +1,4 @@
+id: shared-core
+required_variables: []
+role_path: domains/{role}
+shared_roots: [shared]

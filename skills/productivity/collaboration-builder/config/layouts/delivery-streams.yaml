@@ -1,0 +1,4 @@
+id: delivery-streams
+required_variables: []
+role_path: streams/{stream}/areas/{role}
+shared_roots: []

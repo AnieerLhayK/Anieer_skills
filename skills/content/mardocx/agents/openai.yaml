@@ -1,0 +1,7 @@
+interface:
+  display_name: "Mardocx"
+  short_description: "Project-scoped Markdown to styled DOCX"
+  default_prompt: "Use $mardocx to convert this Markdown file with the project's reference.docx."
+
+policy:
+  allow_implicit_invocation: false

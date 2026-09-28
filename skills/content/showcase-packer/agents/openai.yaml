@@ -1,0 +1,6 @@
+interface:
+  display_name: "Showcase-Packer"
+  short_description: "Build a reviewed portable package from data, approach, and conclusions"
+  default_prompt: "Use $showcase-packer to preview and then build a portable evidence package from my explicitly scoped materials."
+policy:
+  allow_implicit_invocation: true

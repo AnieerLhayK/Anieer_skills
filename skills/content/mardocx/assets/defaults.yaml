@@ -1,0 +1,26 @@
+typography:
+  body:
+    font: "宋体"
+    size_pt: 12
+    line_spacing: 1.25
+  headings:
+    "1":
+      font: "宋体"
+      size_pt: 24
+      bold: true
+    "2":
+      font: "宋体"
+      size_pt: 14
+      bold: true
+    "3":
+      font: "宋体"
+      size_pt: 12
+      bold: true
+images:
+  landscape_width_cm: 8
+  portrait_width_cm: 6
+  caption:
+    font: "宋体"
+    size_pt: 9
+    color: "#808080"
+    alignment: "center"

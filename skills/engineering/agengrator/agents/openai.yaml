@@ -1,0 +1,6 @@
+interface:
+  display_name: "Agengrator"
+  short_description: "Build a review-gated portable Codex handoff"
+  default_prompt: "Use $agengrator to prepare a review-gated Codex handoff bundle from explicitly selected local skills and workspace rules."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "repositories"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "purpose": {"type": "string", "minLength": 1},
+    "repositories": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+      "additionalProperties": {"$ref": "#/$defs/repository"}
+    }
+  },
+  "$defs": {
+    "repository": {
+      "type": "object",
+      "required": ["display_name", "github_url", "default_branch", "original_local_path", "status", "restore", "verification"],
+      "additionalProperties": false,
+      "properties": {
+        "display_name": {"type": "string", "minLength": 1},
+        "github_url": {"type": "string", "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "default_branch": {"type": "string", "minLength": 1},
+        "original_local_path": {"type": "string", "minLength": 3},
+        "status": {"enum": ["pending_retirement", "remote_only", "local_directory_retired"]},
+        "source": {"type": "string", "minLength": 1},
+        "retired_at": {"type": ["string", "null"]},
+        "resource_receipt": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/resourceReceipt"}
+        },
+        "local_directory_receipt": {"$ref": "#/$defs/localDirectoryReceipt"},
+        "restore": {
+          "type": "object",
+          "required": ["clone_url", "branch", "suggested_path"],
+          "additionalProperties": false,
+          "properties": {
+            "clone_url": {"type": "string", "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+            "branch": {"type": "string", "minLength": 1},
+            "suggested_path": {"type": "string", "minLength": 3}
+          }
+        },
+        "verification": {
+          "type": "object",
+          "required": ["status", "commit", "verified_at", "failure_code"],
+          "additionalProperties": false,
+          "properties": {
+            "status": {"enum": ["pending", "verified", "failed"]},
+            "commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+            "verified_at": {"type": ["string", "null"]},
+            "failure_code": {"type": ["string", "null"], "pattern": "^[a-z0-9_]+$"}
+          }
+        }
+      }
+    },
+    "resourceReceipt": {
+      "type": "object",
+      "required": ["relative_path", "action", "file_count", "total_bytes"],
+      "properties": {
+        "relative_path": {"type": "string", "minLength": 1},
+        "action": {"enum": ["recycle", "preserve"]},
+        "file_count": {"type": "integer", "minimum": 1},
+        "total_bytes": {"type": "integer", "minimum": 0},
+        "destination_path": {"type": "string", "minLength": 3},
+        "file_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "completed_at": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"action": {"const": "preserve"}}},
+          "then": {"required": ["destination_path", "file_manifest_sha256", "completed_at"]},
+          "else": {"not": {"anyOf": [
+            {"required": ["destination_path"]},
+            {"required": ["file_manifest_sha256"]},
+            {"required": ["completed_at"]}
+          ]}}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "localDirectoryReceipt": {
+      "type": "object",
+      "required": ["retained_paths", "file_count", "file_manifest_sha256", "recreated_at"],
+      "additionalProperties": false,
+      "properties": {
+        "retained_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "file_count": {"type": "integer", "minimum": 0},
+        "file_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "recreated_at": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

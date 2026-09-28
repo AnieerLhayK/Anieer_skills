@@ -1,0 +1,6 @@
+interface:
+  display_name: "Skill Adapter"
+  short_description: "Publish Workspace skills into external projects safely"
+  default_prompt: "Use $skill-adaptator to plan or apply a reviewed skill publication to an external project."
+policy:
+  allow_implicit_invocation: false

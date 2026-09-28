@@ -1,6 +1,6 @@
 # Anieer Skills
 
-A portable, generated collection of independently usable Codex skills.
+A generated collection of Codex skills. Portability and host requirements vary by skill; check each entry before installing.
 
 ## Related project
 
@@ -8,16 +8,24 @@ A portable, generated collection of independently usable Codex skills.
 
 ## Included skills
 
-- [`collaboration-builder`](skills/collaboration-builder/SKILL.md)
-- [`disk-scan-reporter`](skills/disk-scan-reporter/SKILL.md)
-- [`far-repo-governor`](skills/far-repo-governor/SKILL.md)
-- [`windows-ai-storage-governor`](skills/windows-ai-storage-governor/SKILL.md)
+- [`agengrator`](skills/engineering/agengrator/SKILL.md) — portability: `host-adapted`; requires: `python, windows, host-write-authorization, optional-workspace-manifest`
+- [`collaboration-builder`](skills/productivity/collaboration-builder/SKILL.md) — portability: `portable`; requires: `python, pyyaml, git`
+- [`disk-scan-reporter`](skills/governance/disk-scan-reporter/SKILL.md) — portability: `host-adapted`; requires: `windows, python, optional-workspace-manifest`
+- [`far-repo-governor`](skills/governance/far-repo-governor/SKILL.md) — portability: `host-adapted`; requires: `python, git, github, registered-publisher`
+- [`kill-for-remote`](skills/governance/kill-for-remote/SKILL.md) — portability: `workspace-bound`; requires: `windows, python, git, github, workspace-cli`
+- [`mardocx`](skills/content/mardocx/SKILL.md) — portability: `portable`; requires: `python, PyYAML, python-docx, pandoc`
+- [`showcase-packer`](skills/content/showcase-packer/SKILL.md) — portability: `portable`; requires: `python`
+- [`skill-adaptator`](skills/engineering/skill-adaptator/SKILL.md) — portability: `workspace-bound`; requires: `python, pyyaml, git, workspace-cli, optional-workspace-manifest`
+- [`skill-migrator`](skills/engineering/skill-migrator/SKILL.md) — portability: `workspace-bound`; requires: `python, PyYAML, git, workspace-cli, optional-workspace-manifest`
+- [`windows-ai-storage-governor`](skills/governance/windows-ai-storage-governor/SKILL.md) — portability: `host-adapted`; requires: `windows-powershell, host-write-authorization`
 
 Each directory is a skill source package. Read its `SKILL.md`; do not edit generated copies when a managed source is available.
 
 ## Install and use
 
-Copy one selected `skills/<id>/` directory into your Codex skill directory, then invoke it by its frontmatter name. Keep the directory intact so its scripts and references remain available.
+Copy one selected `skills/<category>/<id>/` directory into your Codex skill directory, then invoke it by its frontmatter name. Check the listed host requirements first; workspace-bound skills require their documented Workspace services and are not standalone portable tools. Keep the directory intact so its scripts and references remain available.
+
+Skills marked `internal-only` are never eligible for this public collection. The registered contract is the explicit allowlist for all other releases.
 
 ## Maintenance
 

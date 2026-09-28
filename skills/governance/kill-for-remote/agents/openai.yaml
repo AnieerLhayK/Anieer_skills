@@ -1,0 +1,6 @@
+interface:
+  display_name: "Kill for Remote"
+  short_description: "Retire a verified local GitHub checkout safely"
+  default_prompt: "Use $kill-for-remote to audit a registered local repository for safe remote-only retirement."
+policy:
+  allow_implicit_invocation: false
