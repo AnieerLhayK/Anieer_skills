@@ -39,7 +39,9 @@
       "assets/licenses/MIT.txt",
       "references/*.json",
       "scripts/*.py",
-      "tests/*.py"
+      "tests/*.py",
+      "references/workflows.md",
+      "references/remote-audit.md"
     ],
     "governance/kill-for-remote": [
       "SKILL.md",
