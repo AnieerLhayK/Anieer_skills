@@ -4,7 +4,7 @@
 
 Read `managed_platform_publishers` in `shared/governance/agent_governance.yaml`. Select only an entry named by the user or directly implicated by the requested source change. Use its publisher script, staging path, remote URL, contract, and license fields as applicable. Do not maintain a second repository list.
 
-For the selected entry, inspect only its synchronizer, generator, checker, tests, and the source README/template that owns generated documentation. Script-generated README prose lives in `scripts/publishing/readme_templates/`; follow the selected generator to the specific template. The QQ filter README is already source-owned in its package and is copied from there. Treat an entry as a source-to-remote projection unless the user explicitly identifies the remote as authoritative for this operation and that choice is recorded in the receipt.
+For the selected entry, follow its synchronizer and generator to the owning contract, checker, tests, and README/template. Portable product-specific content belongs to its package; host-specific paths, registration, authorization and synchronization stay in Workspace. Chatty's portable projection toolchain is under `packages/character-system/distribution/public-projection/`; it includes the filter module. Frame templates remain under `scripts/publishing/readme_templates/`. Treat an entry as a source-to-remote projection unless the user explicitly identifies the remote as authoritative for this operation and that choice is recorded in the receipt.
 
 ## Create or register a projection
 
