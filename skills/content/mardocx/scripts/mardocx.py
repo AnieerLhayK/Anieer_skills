@@ -6,12 +6,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-from mardocx_config import load_config
-from mardocx_convert import convert
 from mardocx_errors import MardocxError
-from mardocx_markdown import heading_warnings, quote_warnings
-from mardocx_project import resolve_project_root
-from mardocx_reference import update_reference
 
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
@@ -41,7 +36,12 @@ def main(argv: list[str] | None = None) -> int:
     update.add_argument("--project-root")
     arguments = parser.parse_args(argv)
     try:
+        from mardocx_project import resolve_project_root
+
         if arguments.command == "update-reference":
+            from mardocx_config import load_config
+            from mardocx_reference import update_reference
+
             root = resolve_project_root(None, arguments.project_root)
             update_reference(root / "reference.docx", load_config(SKILL_DIR, root))
             print(f"Updated {root / 'reference.docx'}")
@@ -49,6 +49,8 @@ def main(argv: list[str] | None = None) -> int:
         source = _source(arguments.input)
         root = resolve_project_root(source, arguments.project_root)
         if arguments.command == "check":
+            from mardocx_markdown import heading_warnings, quote_warnings
+
             if not source.is_file():
                 raise MardocxError(f"Markdown input does not exist: {source}")
             heading_messages, _ = heading_warnings(source)
@@ -58,11 +60,20 @@ def main(argv: list[str] | None = None) -> int:
         output = _source(arguments.output) if arguments.output else source.with_suffix(".docx")
         if output.exists() and not arguments.overwrite:
             raise MardocxError(f"Output already exists: {output}. Use --overwrite to replace it.")
+        from mardocx_config import load_config
+        from mardocx_convert import convert
+
         output.parent.mkdir(parents=True, exist_ok=True)
         messages = convert(source, root, output, load_config(SKILL_DIR, root))
         _emit_warnings(messages)
         print(f"Created {output}")
         return 0
+    except ModuleNotFoundError as exc:
+        packages = {"PIL": "Pillow", "docx": "python-docx", "yaml": "PyYAML"}
+        if exc.name not in packages:
+            raise
+        print(f"ERROR: Missing dependency: {packages[exc.name]}. Install the dependencies declared in SKILL.md.", file=sys.stderr)
+        return 2
     except MardocxError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

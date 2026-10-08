@@ -5,7 +5,7 @@ disable-model-invocation: true
 metadata:
   portability: portable
   distribution: review-required
-  requires: [python, PyYAML, python-docx, pandoc]
+  requires: [python, PyYAML, python-docx, Pillow, pandoc]
 ---
 
 # Mardocx
@@ -13,6 +13,9 @@ metadata:
 Use this skill only when the user explicitly invokes `$mardocx` to convert Markdown into a project-formatted DOCX.
 
 Run `scripts/mardocx.py` from this skill directory. The script keeps the project template beside the document instead of using a global Word template.
+
+CLI help does not load conversion dependencies. Install the declared Python
+dependencies before conversion; a missing dependency produces an explicit error.
 
 ## Workflow
 

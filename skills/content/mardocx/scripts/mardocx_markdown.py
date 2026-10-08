@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-from PIL import Image
 
 
 HEADING = re.compile(r"^(?P<indent>[ ]{0,3})(?P<marks>#{1,6})[ \t]+(?P<title>\S.*?)[ \t]*#*[ \t]*$")
@@ -72,6 +71,8 @@ def _is_remote(target: str) -> bool:
 
 
 def _image_width(target: str, source_dir: Path, config: dict) -> tuple[str | None, str | None]:
+    from PIL import Image
+
     if _is_remote(target):
         return None, f"remote image retained without sizing: {target}"
     local = Path(unquote(target))

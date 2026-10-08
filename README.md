@@ -13,7 +13,7 @@ A generated collection of Codex skills. Portability and host requirements vary b
 - [`disk-scan-reporter`](skills/governance/disk-scan-reporter/SKILL.md) — portability: `host-adapted`; requires: `windows, python, optional-workspace-manifest`
 - [`far-repo-governor`](skills/governance/far-repo-governor/SKILL.md) — portability: `host-adapted`; requires: `python, git, github, registered-publisher`
 - [`kill-for-remote`](skills/governance/kill-for-remote/SKILL.md) — portability: `workspace-bound`; requires: `windows, python, git, github, workspace-cli`
-- [`mardocx`](skills/content/mardocx/SKILL.md) — portability: `portable`; requires: `python, PyYAML, python-docx, pandoc`
+- [`mardocx`](skills/content/mardocx/SKILL.md) — portability: `portable`; requires: `python, PyYAML, python-docx, Pillow, pandoc`
 - [`showcase-packer`](skills/content/showcase-packer/SKILL.md) — portability: `portable`; requires: `python`
 - [`skill-adaptator`](skills/engineering/skill-adaptator/SKILL.md) — portability: `workspace-bound`; requires: `python, pyyaml, git, workspace-cli, optional-workspace-manifest`
 - [`skill-migrator`](skills/engineering/skill-migrator/SKILL.md) — portability: `workspace-bound`; requires: `python, PyYAML, git, workspace-cli, optional-workspace-manifest`
