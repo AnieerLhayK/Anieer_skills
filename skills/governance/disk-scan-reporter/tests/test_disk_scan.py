@@ -248,7 +248,8 @@ class DiskScanTests(unittest.TestCase):
             self.assertEqual(report["coverage"]["roots"][0]["planned_root"], "<inventory_C>")
             aggregates = report["stages"]["inventory"]["directory_aggregates"]
             data_row = next(row for row in aggregates if row["path"].endswith("data"))
-            codex_row = next(row for row in aggregates if row["path"].endswith("AI\\data\\codex"))
+            codex_suffix = Path("AI") / "data" / "codex"
+            codex_row = next(row for row in aggregates if row["path"].endswith(str(codex_suffix)))
             self.assertTrue(data_row["lower_bound"])
             self.assertTrue(data_row["promoted"])
             self.assertEqual(codex_row["policy"], "review_only")
