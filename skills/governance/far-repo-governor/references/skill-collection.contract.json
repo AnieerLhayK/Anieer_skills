@@ -79,6 +79,10 @@
       "scripts/*.py",
       "tests/*.py"
     ],
+    "content/speaking-like-a-man": [
+      "SKILL.md",
+      "agents/openai.yaml"
+    ],
     "governance/windows-ai-storage-governor": [
       ".gitignore",
       "SKILL.md",

@@ -17,6 +17,7 @@ A generated collection of Codex skills. Portability and host requirements vary b
 - [`showcase-packer`](skills/content/showcase-packer/SKILL.md) — portability: `portable`; requires: `python`
 - [`skill-adaptator`](skills/engineering/skill-adaptator/SKILL.md) — portability: `workspace-bound`; requires: `python, pyyaml, git, workspace-cli, optional-workspace-manifest`
 - [`skill-migrator`](skills/engineering/skill-migrator/SKILL.md) — portability: `workspace-bound`; requires: `python, PyYAML, git, workspace-cli, optional-workspace-manifest`
+- [`speaking-like-a-man`](skills/content/speaking-like-a-man/SKILL.md) — portability: `portable`; requires: ``
 - [`windows-ai-storage-governor`](skills/governance/windows-ai-storage-governor/SKILL.md) — portability: `host-adapted`; requires: `windows-powershell, host-write-authorization`
 
 Each directory is a skill source package. Read its `SKILL.md`; do not edit generated copies when a managed source is available.

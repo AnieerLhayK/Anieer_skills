@@ -1,0 +1,6 @@
+interface:
+  display_name: "Speaking Like A MAN"
+  short_description: "Direct, composed prose that preserves useful reasoning"
+  default_prompt: "Use $speaking-like-a-man for clear, firm prose in this task."
+policy:
+  allow_implicit_invocation: false
