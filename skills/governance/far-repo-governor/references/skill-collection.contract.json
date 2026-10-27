@@ -81,7 +81,9 @@
     ],
     "content/speaking-like-a-man": [
       "SKILL.md",
-      "agents/openai.yaml"
+      "agents/openai.yaml",
+      "cases/index.md",
+      "cases/001-opaque-professional-wording.md"
     ],
     "governance/windows-ai-storage-governor": [
       ".gitignore",
