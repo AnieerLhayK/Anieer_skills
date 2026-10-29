@@ -83,7 +83,8 @@
       "SKILL.md",
       "agents/openai.yaml",
       "cases/index.md",
-      "cases/001-opaque-professional-wording.md"
+      "cases/001-opaque-professional-wording.md",
+      "references/shared-expression.md"
     ],
     "governance/windows-ai-storage-governor": [
       ".gitignore",
