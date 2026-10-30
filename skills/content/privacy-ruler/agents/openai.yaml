@@ -1,0 +1,6 @@
+interface:
+  display_name: "Privacy-Ruler"
+  short_description: "Reviewable material de-identification in three strengths"
+  default_prompt: "Use $privacy-ruler on my selected material; default to medium and raise strength for public disclosure."
+policy:
+  allow_implicit_invocation: false

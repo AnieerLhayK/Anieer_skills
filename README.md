@@ -8,6 +8,7 @@ A generated collection of Codex skills. Portability and host requirements vary b
 
 ## Included skills
 
+- [`privacy-ruler`](skills/content/privacy-ruler/SKILL.md) — portability: `portable`; requires: `python, pymupdf, libreoffice`
 - [`agengrator`](skills/engineering/agengrator/SKILL.md) — portability: `host-adapted`; requires: `python, windows, host-write-authorization, optional-workspace-manifest`
 - [`collaboration-builder`](skills/productivity/collaboration-builder/SKILL.md) — portability: `portable`; requires: `python, pyyaml, git`
 - [`disk-scan-reporter`](skills/governance/disk-scan-reporter/SKILL.md) — portability: `host-adapted`; requires: `windows, python, optional-workspace-manifest`
