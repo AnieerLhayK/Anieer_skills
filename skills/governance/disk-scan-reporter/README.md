@@ -1,13 +1,12 @@
 # Disk Scan Reporter
 
-`disk-scan-reporter` is a read-only Windows disk-usage diagnostic skill. It
-scans only configured paths, reads filesystem metadata, classifies manual-review
-candidates, and writes a human-readable Markdown report plus a machine-readable
-JSON report.
+`disk-scan-reporter` inspects Windows disk usage, deep-scans explicitly named
+directories, and continues with exact user-approved cleanup in the same chat.
+Its scanner reads filesystem metadata and writes Markdown and JSON reports.
 
-It never deletes, moves, renames, compresses, truncates, or modifies user files.
-It does not run cleanup utilities, request administrator privileges, change
-system settings, or create missing scan targets.
+The scanner never modifies scanned files, elevates privileges, changes system
+settings, or creates missing scan targets. Cleanup uses a separate Workspace
+adapter after approval; see [cleanup.md](references/cleanup.md).
 
 ## Run
 
@@ -23,6 +22,7 @@ Optional controls:
 python scripts/disk_scan.py --config config/scan_config.json --max-depth 6
 python scripts/disk_scan.py --config config/scan_config.json --json-only
 python scripts/disk_scan.py --config config/scan_config.json --md-only
+python scripts/disk_scan.py --config config/scan_config.json --deep-scan "D:\Dev\package-cache"
 ```
 
 The output directory is created when needed. With no `--output`, the scanner
@@ -48,6 +48,14 @@ are inventory-only; notably `${LOCAL_PATH}` is review-only and cannot be
 auto-promoted. `large_file_mb` and `very_large_file_mb` are 1 GiB and 4 GiB;
 file age is review context rather than a candidate rule.
 
+Explicit `--deep-scan` targets bypass automatic thresholds and `review_only`,
+skip drive inventory, and share 900 seconds / 500,000 files. Repeat the option
+for multiple absolute directories. The request is read-only, requires no TASK
+or repeated approval, and does not change the automatic configuration. System
+protection, links, `.git`, source repositories and configured exclusions remain
+in force. A shared budget stop produces partial coverage without an automatic
+restart or a request to register more work.
+
 `scan_paths` remains supported for legacy single-stage configurations. Keep
 reports in relative-path mode when they may be shared.
 
@@ -68,6 +76,11 @@ The JSON report declares `schema_version`, `tool_version`, and a deterministic
 SHA-256 `config_fingerprint`. Readers accept historical schema 1.0 reports;
 new reports use schema 2.0 and should validate against
 `references/report_schema.json`.
+
+Tool 2.1 adds optional `run_mode` and `request` fields within schema 2.0.
+Manual reports mark inventory `not_run`, record safe requested-root labels,
+and report `manual_shared_budget`; their fingerprint includes the effective
+request and budget. Historical 1.0 and automatic 2.0 reports remain readable.
 
 Relative mode reduces local-layout disclosure but is not anonymization:
 filenames and directory names below promoted roots can still be sensitive.
@@ -121,15 +134,17 @@ ownership, recoverability, active use, or business value from file metadata.
 
 The source package lives at the manifest-relative path
 `skills/governance/disk-scan-reporter`. The workspace catalog registers its role,
-read-only audit authority, report-write execution mode, required files, and
+default audit authority, explicitly approved cleanup authority, execution modes, required files, and
 Codex exposure. The manifest projection points the Codex loading surface back
 to this single source directory; platform directories are not independent
 copies and must not be edited directly.
 
-## Future Automation
+## Weekly Scan and Follow-up
 
-A later, separately reviewed automation may schedule the same read-only command
-and send only a summary. Possible extensions include comparison with the prior
-report, newly added large files, fastest-growing directories, and weekly
-summary delivery. Any future automation must preserve the no-cleanup boundary
-and must not turn recommendations into deletion actions.
+The weekly job runs the automatic read-only scan and reports coverage and
+candidates every time. In that result's chat, an explicit deeper-inspection
+request runs immediately within the manual budget. Cleanup requires one
+approval of a displayed exact-path batch with each method, impact and recovery
+limit. Codex manages the TASK, a maximum one-hour exact-path lease, checks and
+closure. Recycle Bin placement is distinct from freeing disk space. Approval
+does not persist into future weekly runs.

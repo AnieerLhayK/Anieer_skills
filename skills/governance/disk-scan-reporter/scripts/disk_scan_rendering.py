@@ -30,7 +30,7 @@ except ModuleNotFoundError:
     )
 
 MIB = 1024 * 1024
-TOOL_VERSION = "2.0.0"
+TOOL_VERSION = "2.1.0"
 RISK_ORDER = {"DO_NOT_TOUCH": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
 COVERAGE_PRIORITY = {
     "COMPLETE_WITHIN_CONFIG": 0,
@@ -183,7 +183,10 @@ def markdown_two_stage_report(report: dict[str, Any]) -> str:
         "# Disk Scan Report",
         "",
         f"- Generated at: `{report['generated_at']}`",
+        f"- Run mode: `{report.get('run_mode', 'automatic')}`",
         "- Safety: read-only metadata scan; no cleanup was performed.",
+        "- Inventory was not run; only explicitly requested roots were scanned."
+        if inventory["mode"] == "not_run" else
         "- Inventory totals are observed lower bounds, not complete directory sizes.",
         "",
         "## Inventory",
@@ -203,7 +206,7 @@ def markdown_two_stage_report(report: dict[str, Any]) -> str:
                 f"- `{row['path']}` — `{row['status']}`, files `{row['files_scanned']}`, terminal reason `{row['terminal_reason']}`"
                 for row in targets
             ]
-            or ["- No directory qualified for automatic deep scan."]
+            or ["- No deep-scan targets."]
         ),
         "",
         "## Manual-Review Candidates",
@@ -220,6 +223,8 @@ def markdown_two_stage_report(report: dict[str, Any]) -> str:
         "",
         f"- Status: `{report['coverage']['status']}`",
         f"- Total run budget: `{deep_scan['max_total_seconds']}` seconds",
+        *([f"- Shared file budget: `{deep_scan['max_total_files']}` files"]
+          if "max_total_files" in deep_scan else []),
         "- A budget or depth stop is partial coverage, never permission to broaden scope.",
         "",
         "## Safety Notice",

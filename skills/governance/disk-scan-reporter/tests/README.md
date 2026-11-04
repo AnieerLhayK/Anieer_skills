@@ -10,3 +10,8 @@ contract.
 junction escape rejection, and shallow snapshot comparison.
 
 Run with `python -m unittest discover tests`.
+
+`test_manual_deep_scan.py` verifies explicit promotion, shared budgets, target
+deduplication, protection, partial coverage and compatibility. Workspace cleanup
+adapter tests live in `scripts/tests/workspace/test_disk_scan_cleanup.py`; they
+use synthetic staging fixtures and never real cleanup candidates.

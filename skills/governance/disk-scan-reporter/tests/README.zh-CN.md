@@ -5,3 +5,5 @@
 `test_audit_guard.py` 涵盖破坏性 API 检测、允许的写入根目录、接合点（junction）逃逸拒绝以及浅层快照比较。
 
 运行方式：`python -m unittest discover tests`。
+
+`test_manual_deep_scan.py` 验证显式晋级、共享预算、目标去重、保护、部分覆盖和兼容性。Workspace 清理执行器的测试位于 `scripts/tests/workspace/test_disk_scan_cleanup.py`，仅使用 staging 合成材料，不使用真实清理候选。

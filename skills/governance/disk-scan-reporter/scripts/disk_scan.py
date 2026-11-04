@@ -34,11 +34,11 @@ def scan_root(*args, **kwargs):
     return _scan_root_impl(*args, **kwargs)
 
 
-def run_scan(config_path, output, max_depth=None):
+def run_scan(config_path, output, max_depth=None, *, deep_scan=None):
     """Run with the facade scan hook for legacy scan_root patches."""
     _engine.time = time
     _engine.scan_root = scan_root
-    return _run_scan_impl(config_path, output, max_depth)
+    return _run_scan_impl(config_path, output, max_depth, deep_scan=deep_scan)
 
 
 def run_two_stage_scan(config_path, config, audit_policy):

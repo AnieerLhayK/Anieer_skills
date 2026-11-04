@@ -39,6 +39,15 @@ voice. Lists, headings, contrasts and summaries can serve reports or comparisons
 their presence alone does not establish poor writing or character drift. Repair
 empty symmetry or forced resolution without imposing a universal literary ideal.
 
+Use natural collocations when describing changes in an abstract feeling. Check
+whether pairings with simple physical or degree attributes such as “轻、弱、薄、软”,
+or images of placing and settling a feeling such as “安放”, have an established
+use or do meaningful work in context. When they only manufacture tenderness or
+depth, choose an apt familiar verb or describe the change directly: “减轻失落”
+can fit better than “让失落轻一点”. Keep natural speech, idioms and imagery that
+develop meaning or voice; judge the whole expression rather than banning a word,
+monosyllable or sentence form.
+
 ## Plain professional wording
 
 Use concrete referents and actions when they clarify what happens or is measured.

@@ -1,8 +1,8 @@
 # Disk Scan Reporter（磁盘扫描报告器）
 
-`disk-scan-reporter` 是一个只读的 Windows 磁盘用量诊断技能。它仅扫描已配置的路径，读取文件系统元数据，对手动审查候选对象进行分类，并输出一份人类可读的 Markdown 报告和一份机器可读的 JSON 报告。
+`disk-scan-reporter` 检查 Windows 磁盘用量，支持明确指定目录的只读深扫，并可在原 chat 中执行用户明确批准的精确清理批次。扫描器读取文件系统元数据，输出 Markdown 和 JSON 报告。
 
-它从不删除、移动、重命名、压缩、截断或修改用户文件。它不运行清理工具、不请求管理员权限、不更改系统设置，也不创建缺失的扫描目标。
+扫描器不修改被扫描文件、不提权、不更改系统设置，也不创建缺失目标。清理由独立的 Workspace 执行器在用户批准后完成，详见 [cleanup.md](references/cleanup.md)。
 
 ## 运行
 
@@ -18,6 +18,7 @@ python scripts/disk_scan.py --config config/scan_config.json
 python scripts/disk_scan.py --config config/scan_config.json --max-depth 6
 python scripts/disk_scan.py --config config/scan_config.json --json-only
 python scripts/disk_scan.py --config config/scan_config.json --md-only
+python scripts/disk_scan.py --config config/scan_config.json --deep-scan "D:\Dev\package-cache"
 ```
 
 输出目录在需要时会自动创建。未指定 `--output` 时，扫描器依次使用
@@ -44,6 +45,8 @@ python scripts/disk_scan.py --config config/scan_config.json --md-only
 
 默认配置使用 `two_stage_plan`：先以 C=3 层、60 秒/10 万文件，D=4 层、120 秒/20 万文件做盘点；这些目录用量都是已观测下界。C 盘严格超过 4 GiB、D 盘严格超过 8 GiB 的合资格目录才晋级完整递归深扫，每个目标最多 180 秒/10 万文件，整次最多 15 分钟。系统路径和链接不遍历；应用、开发根目录与 `${LOCAL_PATH}` 仅盘点，绝不自动晋级。旧的 `scan_paths` 单阶段配置仍受支持。
 
+明确请求 `--deep-scan` 时，仅扫描指定的绝对目录，可重复传入多个目标；不重跑盘点，可越过大小阈值和 `review_only`。整批共享 900 秒／50 万文件上限，不受原单目录预算限制。此只读请求免 TASK，不重复请示，也不改变今后自动扫描范围。系统保护、链接、`.git`、源码仓库及配置排除项仍有效；总预算耗尽后直接给出部分结论和未覆盖范围。
+
 ## 阅读报告
 
 每次运行都会在解析后的输出根目录下写入带时间戳的文件：
@@ -56,6 +59,8 @@ disk-scan-reporter/disk_report_YYYY-MM-DD_HHMMSS.json
 schema 2.0 的 Markdown 报告分别展示盘点下界、路径策略与晋级决定、深扫覆盖和人工审查候选；盘点使用盘符标签，深扫使用晋级根相对路径。
 
 JSON 报告声明 `schema_version`、`tool_version` 和确定性的 SHA-256 `config_fingerprint`。读取器兼容历史 schema 1.0；新报告使用 schema 2.0，并应按 `references/report_schema.json` 校验。
+
+工具 2.1 在 schema 2.0 中增加可选的 `run_mode` 与 `request` 字段。手动报告标记盘点为 `not_run`、深扫为 `manual_shared_budget`，记录相对盘符的请求目标和共享预算；指纹包含实际请求及预算。历史 1.0 与自动 2.0 报告仍可读取。
 
 使用默认的相对路径模式时，`<scan_root_1>` 等标签映射到本地配置中按顺序排列的 `scan_paths` 条目。这减少了报告共享时用户名和本地布局的泄露。相对模式并非匿名化：每个根目录下的文件名和目录名仍可能包含敏感信息。
 
@@ -94,8 +99,8 @@ python scripts/audit_guard.py
 
 ## 工作区集成
 
-源代码包位于 `skills/governance/disk-scan-reporter`。对应分类注册表记录其角色、只读审计权限、报告写入执行模式、必需文件以及 Codex 暴露；平台目录不是独立副本，不得直接编辑。
+源代码包位于 `skills/governance/disk-scan-reporter`。分类注册表记录默认审计权限、明确批准后的清理权限、执行模式、必需文件和 Codex 暴露；平台目录不是独立副本，不得直接编辑。
 
-## 未来自动化
+## 每周扫描与后续处理
 
-后续经过单独审查的自动化可以调度相同的只读命令，仅发送摘要。可能的扩展包括与先前报告的比较、新添加的大文件、增长最快的目录以及每周摘要投递。任何未来的自动化都必须保留不清除的边界，并且不得将建议转化为删除操作。
+每周任务自动只读扫描，每次提供覆盖和候选摘要。你可在结果所在 chat 中直接要求定向深扫。清理前会展示精确路径、逐项删除方式、影响及恢复／备份状态；你一次批准后原 chat 执行，Codex 自动办理 TASK、最长一小时的精确路径租约、复查及关闭。移入回收站通常不释放所在磁盘空间。批准不延续到下一次周任务。

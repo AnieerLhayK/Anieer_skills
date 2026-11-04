@@ -87,6 +87,7 @@
       "agents/openai.yaml",
       "cases/index.md",
       "cases/001-opaque-professional-wording.md",
+      "cases/002-forced-abstract-expression.md",
       "references/shared-expression.md"
     ],
     "governance/windows-ai-storage-governor": [

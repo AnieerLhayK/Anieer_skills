@@ -577,6 +577,14 @@ def scan_root(
             root=root,
         )
 
+    if config.get("skip_repository_roots") and any((part / ".git").exists()
+                                                   for part in [root, *root.parents]):
+        record_skipped(state, root, "source repository excluded from manual deep scan",
+                       "DO_NOT_TOUCH", max_diagnostics, coverage=coverage, category="exclusion")
+        coverage.terminal_reason = "source_repository_excluded"
+        return finalize_coverage(coverage, snapshot_enabled=False,
+                                 snapshot_name_hash=snapshot_name_hash, root=root)
+
     coverage.started = True
     coverage.terminal_reason = "scanning"
     if snapshot_enabled:
@@ -605,6 +613,10 @@ def scan_root(
                 coverage=coverage,
                 category="link",
             )
+            continue
+        if config.get("skip_repository_roots") and (current / ".git").exists():
+            record_skipped(state, current, "source repository excluded from manual deep scan",
+                           "DO_NOT_TOUCH", max_diagnostics, coverage=coverage, category="exclusion")
             continue
         try:
             identity_stat = current.stat()
@@ -1062,6 +1074,7 @@ def run_two_stage_scan(
     ]
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
+        "run_mode": "automatic",
         "tool_version": TOOL_VERSION,
         "generated_at": datetime.now().astimezone().isoformat(),
         "config_used": config_path.name,
@@ -1138,8 +1151,19 @@ def run_two_stage_scan(
     }
 
 
-def run_scan(config_path: Path, output: Path, max_depth: int | None = None) -> dict[str, Any]:
+def run_scan(config_path: Path, output: Path, max_depth: int | None = None,
+             *, deep_scan: list[Path] | None = None) -> dict[str, Any]:
     config = load_config(config_path)
+    if deep_scan:
+        if max_depth is not None:
+            raise ValueError("--deep-scan cannot be combined with --max-depth")
+        try:
+            from scripts.disk_scan_manual import run_manual_scan
+        except ModuleNotFoundError:
+            from disk_scan_manual import run_manual_scan
+        _, audit_policy = audit_policy_for_config(config_path, config)
+        return run_manual_scan(config_path, config, audit_policy, deep_scan,
+                               sys.modules[__name__], scan_root)
     if "two_stage_plan" in config:
         _, audit_policy = audit_policy_for_config(config_path, config)
         return run_two_stage_scan(Path(os.path.abspath(config_path)), config, audit_policy)
@@ -1221,6 +1245,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--max-depth", type=int)
+    parser.add_argument("--deep-scan", type=Path, action="append", default=[],
+                        help="Deep-scan only these explicit absolute directories, with a shared budget")
     output_group = parser.add_mutually_exclusive_group()
     output_group.add_argument("--json-only", action="store_true")
     output_group.add_argument("--md-only", action="store_true")
@@ -1233,7 +1259,10 @@ def main() -> int:
     default_write_roots = (output,) if args.output is None else ()
     exit_code = 0
     try:
-        report = run_scan(args.config, output, args.max_depth)
+        if args.deep_scan:
+            report = run_scan(args.config, output, args.max_depth, deep_scan=args.deep_scan)
+        else:
+            report = run_scan(args.config, output, args.max_depth)
     except Exception as exc:
         exit_code = 1
         now = datetime.now().astimezone().isoformat()

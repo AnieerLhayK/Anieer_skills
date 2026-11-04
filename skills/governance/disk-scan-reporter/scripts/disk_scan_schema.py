@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,18 @@ def load_config(path: Path) -> dict[str, Any]:
         ):
             if key not in plan or float(plan[key]) < 0:
                 raise ValueError(f"two_stage_plan requires non-negative {key}")
+    manual = payload.get("manual_deep_scan", {})
+    if not isinstance(manual, dict):
+        raise ValueError("manual_deep_scan must be an object")
+    for key, default in (("max_total_seconds", 900), ("max_total_files", 500000)):
+        value = manual.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            raise ValueError(f"manual_deep_scan.{key} must be finite and positive")
+        if key == "max_total_files" and int(value) != value:
+            raise ValueError("manual_deep_scan.max_total_files must be an integer")
+    excluded = manual.get("excluded_paths", [])
+    if not isinstance(excluded, list) or not all(isinstance(item, str) and item for item in excluded):
+        raise ValueError("manual_deep_scan.excluded_paths must be a list of paths")
     path_mode = str(payload.get("report_path_mode", "relative")).casefold()
     if path_mode not in PATH_MODES:
         raise ValueError("report_path_mode must be 'relative' or 'absolute'")
@@ -133,6 +146,15 @@ def validate_report(report: dict[str, Any]) -> None:
             or not isinstance(deep_scan.get("targets"), list)
         ):
             raise ValueError("schema 2.0 report stages are malformed")
+        if report.get("run_mode") == "manual_deep":
+            request = report.get("request", {})
+            if (inventory.get("mode") != "not_run"
+                    or deep_scan.get("mode") != "manual_shared_budget"
+                    or not isinstance(request.get("targets"), list)
+                    or not request["targets"]
+                    or not isinstance(deep_scan.get("max_total_files"), int)
+                    or deep_scan["max_total_files"] <= 0):
+                raise ValueError("manual deep-scan report requires requested targets and shared budget")
 
 
 def parse_report_json(text: str) -> dict[str, Any]:

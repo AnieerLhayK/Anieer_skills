@@ -30,6 +30,11 @@
       }
     ]
   },
+  "manual_deep_scan": {
+    "max_total_seconds": 900,
+    "max_total_files": 500000,
+    "excluded_paths": ["D:\\AI\\workspace", "D:\\AI\\projects", "D:\\AI\\research", "D:\\AI\\data\\mcp"]
+  },
   "large_file_mb": 1024,
   "very_large_file_mb": 4096,
   "old_file_days": 30,
