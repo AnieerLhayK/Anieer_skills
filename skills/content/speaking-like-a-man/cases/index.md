@@ -6,6 +6,7 @@ Use this index only when the main skill's rules leave a wording judgment that ne
 | --- | --- | --- |
 | [001: Opaque professional wording](001-opaque-professional-wording.md) | An abstract technical-sounding label hides an ordinary action or an unspecified measurement. | Deciding whether to unpack a label, preserve a useful recurring term, or leave its meaning unresolved. |
 | [002: Forced abstract expression](002-forced-abstract-expression.md) | An abstract feeling receives an awkward attribute or an image that only manufactures tenderness or depth. | Distinguishing forced wording from natural collocations, idioms and imagery that carry meaning or voice. |
+| [003: Unnecessary qualification](003-unnecessary-qualification.md) | A review adds an editorial rebuttal after the facts already show their contrast. | Deciding whether a qualification serves the actual task or can be expressed through the evidence. |
 
 ## Maintaining this collection
 

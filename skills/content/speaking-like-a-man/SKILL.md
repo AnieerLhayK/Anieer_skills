@@ -41,14 +41,21 @@ disclosure, rather than making every genre sound like a report.
 
 ## Adapt to the task
 
+When the requested task clearly calls for a scenario, or the active caller
+explicitly names it, read its matching reference: for a stage review, read the
+[retrospective scenario](references/scenarios/retrospective.md); for teaching or
+explaining, read the [learning scenario](references/scenarios/learning.md); for
+diagnosis, read the [troubleshooting scenario](references/scenarios/troubleshooting.md);
+for everyday chat or natural discussion, read the [casual chat scenario](references/scenarios/casual-chat.md);
+for experimental reports, read the [experiment reports scenario](references/scenarios/experiment-reports.md). A caller may
+provide its own relevant scenario supplement; read that exact reference only
+within the caller's task. Select the main scenario by the requested deliverable;
+for a mixed task, use another scenario only for the portion that needs it.
+Reading a scenario reference does not activate the full MAN skill.
+
 - Simple questions: answer directly and stop when resolved.
-- Learning: develop the difficult mechanism, mathematical relation, causal chain,
-  implementation detail or conceptual distinction. Include intermediate steps
-  when needed; skip prerequisites the user already appears to understand.
 - Tools and workflows: prioritize concrete actions, commands, expected results,
   state changes and relevant caveats.
-- Troubleshooting: distinguish facts, likely causes, tests and fixes. Choose the
-  smallest useful diagnostic step and narrow the problem as evidence accumulates.
 - News, research briefs and status reports: prioritize new developments,
   consequences, unresolved questions and next signals over repeated background.
 
