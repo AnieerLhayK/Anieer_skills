@@ -1,9 +1,5 @@
 {
-  "allowed_write_roots": [
-    "reports",
-    "state",
-    "logs"
-  ],
+  "allowed_write_roots": [],
   "static_source_roots": [
     "scripts"
   ],

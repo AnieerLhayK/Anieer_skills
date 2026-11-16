@@ -12,6 +12,7 @@ import json
 import os
 import re
 import stat
+import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, field
@@ -30,7 +31,12 @@ try:
         run_static_audit,
         shallow_snapshot,
     )
-    from scripts.output_paths import default_output_root
+    from scripts.output_paths import (
+        default_audit_policy_path,
+        default_config_path,
+        default_output_root,
+    )
+    from scripts.init_config import require_external_write_authority
 except ModuleNotFoundError:
     from audit_guard import (
         DEFAULT_POLICY_PATH as DEFAULT_AUDIT_POLICY_PATH,
@@ -40,10 +46,16 @@ except ModuleNotFoundError:
         run_static_audit,
         shallow_snapshot,
     )
-    from output_paths import default_output_root
+    from output_paths import (
+        default_audit_policy_path,
+        default_config_path,
+        default_output_root,
+    )
+    from init_config import require_external_write_authority
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
 TEMP_EXTENSIONS = {".tmp", ".temp"}
 ARCHIVE_EXTENSIONS = {".zip", ".7z", ".rar", ".tar", ".gz"}
 CACHE_NAMES = {".cache", "cache"}
@@ -1242,8 +1254,13 @@ def report_exit_code(report: dict[str, Any]) -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument(
+        "--config", type=Path,
+        help="configuration file (defaults to the external Workspace runtime config)",
+    )
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--record-id", help="active disk_scan_report_retention TASK ID")
+    parser.add_argument("--lease", type=Path, help="validated report-root environment lease")
     parser.add_argument("--max-depth", type=int)
     parser.add_argument("--deep-scan", type=Path, action="append", default=[],
                         help="Deep-scan only these explicit absolute directories, with a shared budget")
@@ -1255,26 +1272,64 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    output = args.output or default_output_root()
-    default_write_roots = (output,) if args.output is None else ()
+    try:
+        configured_path = args.config or default_config_path()
+        if args.config is not None and not configured_path.is_file():
+            print(f"ERROR: configuration file does not exist: {configured_path}")
+            return 2
+        audit_policy_path = default_audit_policy_path()
+        report_root = default_output_root()
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return 2
+    if args.config is None:
+        missing = [
+            path for path in (configured_path, audit_policy_path) if not path.is_file()
+        ]
+        if missing:
+            if len(missing) == 2:
+                detail = (
+                    "Initialize from tracked examples under an authorized external_write TASK "
+                    "and lease with `python scripts/init_config.py --record-id <TASK-ID> "
+                    "--lease <LEASE-PATH>`."
+                )
+            else:
+                detail = (
+                    "The external configuration is partially present; reconcile it without "
+                    "overwriting existing files."
+                )
+            print(
+                "ERROR: external scan configuration is incomplete: "
+                f"{', '.join(map(str, missing))}. {detail}"
+            )
+            return 2
+    output = args.output or report_root
+    default_write_roots = (report_root,)
+    try:
+        require_external_write_authority(
+            (output,), record_id=args.record_id, lease=args.lease
+        )
+    except (OSError, ValueError) as exc:
+        print(f"ERROR: report output is not authorized: {exc}")
+        return 2
     exit_code = 0
     try:
         if args.deep_scan:
-            report = run_scan(args.config, output, args.max_depth, deep_scan=args.deep_scan)
+            report = run_scan(configured_path, output, args.max_depth, deep_scan=args.deep_scan)
         else:
-            report = run_scan(args.config, output, args.max_depth)
+            report = run_scan(configured_path, output, args.max_depth)
     except Exception as exc:
         exit_code = 1
         now = datetime.now().astimezone().isoformat()
         error_text = str(exc)
-        for value in (str(args.config), os.path.abspath(args.config)):
-            error_text = error_text.replace(value, args.config.name)
+        for value in (str(configured_path), os.path.abspath(configured_path)):
+            error_text = error_text.replace(value, configured_path.name)
         fallback_config: dict[str, Any] = {}
         report = {
             "schema_version": LEGACY_REPORT_SCHEMA_VERSION,
             "tool_version": TOOL_VERSION,
             "generated_at": now,
-            "config_used": args.config.name,
+            "config_used": configured_path.name,
             "config_fingerprint": config_fingerprint(fallback_config),
             "scan_paths": [],
             "path_reporting": {
@@ -1335,7 +1390,7 @@ def main() -> int:
             "top_large_files": [],
             "errors": [
                 {
-                    "path": args.config.name,
+                    "path": configured_path.name,
                     "category": "unknown",
                     "errno": getattr(exc, "errno", None),
                     "error": error_text,
@@ -1363,6 +1418,28 @@ def main() -> int:
         return 1
     for path in written:
         print(path)
+    retention = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            "-m",
+            "scripts.workspace.disk_scan_cleanup",
+            "retain-reports",
+            "--record-id",
+            args.record_id,
+            "--lease",
+            str(args.lease),
+        ],
+        cwd=WORKSPACE_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if retention.stdout:
+        print(retention.stdout.strip())
+    if retention.returncode:
+        print(f"ERROR: report retention failed: {retention.stderr.strip()}")
+        exit_code = 1
     return exit_code
 
 

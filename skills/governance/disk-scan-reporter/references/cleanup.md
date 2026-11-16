@@ -55,3 +55,22 @@ filesystem snapshot or cryptographic proof of human approval. Inspect a stable
 target; a concurrent app recreating files is a reason to stop and reassess.
 Keep durable receipts in TASK/lease stores; remove transient action/plan files
 from staging after successful use, retaining any failed batch needed for review.
+
+## Standing report-retention exception
+
+The owner approved automatic 30-day retention for this skill's generated
+reports. This is the sole exception to per-batch cleanup approval and applies
+only to direct regular files under the manifest-resolved
+`disk-scan-reporter/reports` directory whose names exactly match
+`disk_report_YYYY-MM-DD_HHMMSS.md` or `.json` and whose filename timestamp and
+last-write time are both more than 30 days old. Nested directories, links,
+reparse points, unrelated files, and younger reports are never candidates.
+
+Each scan creates a `disk_scan_report_retention` TASK and a lease limited to
+that exact report directory. The scanner checks authorization before report
+writes; the retention adapter rechecks the active TASK, lease, path, age and
+file fingerprint before each permanent deletion. It runs after the current
+report is written, records the exact deleted paths, revokes the lease and
+finalizes the TASK. There is no per-run confirmation. Expired reports have no
+backup; deletion is irreversible, and a new scan cannot reproduce the exact
+historical snapshot. This exception authorizes no other target or cleanup.

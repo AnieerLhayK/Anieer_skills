@@ -1,4 +1,2 @@
-reports/*
-!reports/.gitkeep
 __pycache__/
 *.py[cod]

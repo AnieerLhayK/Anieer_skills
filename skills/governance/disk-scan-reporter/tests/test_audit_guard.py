@@ -66,26 +66,31 @@ class AuditGuardTests(unittest.TestCase):
 
     def test_write_path_must_stay_in_allowed_roots(self) -> None:
         policy = load_audit_policy()
-        allowed = ensure_allowed_write_path(
-            SKILL_ROOT / "reports" / "example.json",
-            SKILL_ROOT,
-            policy,
-        )
-        self.assertTrue(str(allowed).startswith(str(SKILL_ROOT / "reports")))
-        with self.assertRaises(PermissionError):
-            ensure_allowed_write_path(
-                SKILL_ROOT.parent / "outside.json",
-                SKILL_ROOT,
-                policy,
+        with tempfile.TemporaryDirectory() as temp:
+            report_root = Path(temp) / "external-reports"
+            allowed = ensure_allowed_write_path(
+                report_root / "example.json", SKILL_ROOT, policy, (report_root,)
             )
+            self.assertEqual(allowed, report_root / "example.json")
+            with self.assertRaises(PermissionError):
+                ensure_allowed_write_path(
+                    SKILL_ROOT / "reports" / "example.json", SKILL_ROOT, policy
+                )
+            with self.assertRaises(PermissionError):
+                ensure_allowed_write_path(
+                    Path(temp) / "outside.json", SKILL_ROOT, policy, (report_root,)
+                )
 
     def test_write_path_rejects_junction_escape(self) -> None:
         if os.name != "nt":
             self.skipTest("Windows junction behavior")
         with tempfile.TemporaryDirectory() as temp:
-            outside = Path(temp) / "outside"
+            root = Path(temp)
+            reports = root / "reports"
+            reports.mkdir()
+            outside = root / "outside"
             outside.mkdir()
-            link = SKILL_ROOT / "reports" / "audit-junction-test"
+            link = reports / "audit-junction-test"
             result = subprocess.run(
                 ["cmd.exe", "/d", "/c", "mklink", "/J", str(link), str(outside)],
                 capture_output=True,
@@ -97,9 +102,7 @@ class AuditGuardTests(unittest.TestCase):
             try:
                 with self.assertRaises(PermissionError):
                     ensure_allowed_write_path(
-                        link / "escaped.json",
-                        SKILL_ROOT,
-                        load_audit_policy(),
+                        link / "escaped.json", SKILL_ROOT, load_audit_policy(), (reports,)
                     )
             finally:
                 os.rmdir(link)
@@ -115,7 +118,7 @@ class AuditGuardTests(unittest.TestCase):
             self.assertIn("direct_child_count", comparison["changed_fields"])
 
     def test_policy_is_valid_json(self) -> None:
-        path = SKILL_ROOT / "config" / "audit_policy.json"
+        path = SKILL_ROOT / "config" / "audit_policy.example.json"
         payload = json.loads(path.read_text(encoding="utf-8"))
         self.assertIn("allowed_write_roots", payload)
 

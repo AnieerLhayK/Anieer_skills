@@ -5,33 +5,58 @@ directories, and continues with exact user-approved cleanup in the same chat.
 Its scanner reads filesystem metadata and writes Markdown and JSON reports.
 
 The scanner never modifies scanned files, elevates privileges, changes system
-settings, or creates missing scan targets. Cleanup uses a separate Workspace
-adapter after approval; see [cleanup.md](references/cleanup.md).
+settings, or creates missing scan targets. Each run is launched through a
+Workspace runtime that records a TASK and short-lived report lease. The runtime
+also permanently removes only generated reports older than 30 days; see
+[cleanup.md](references/cleanup.md). User-approved cleanup uses a separate
+adapter.
 
 ## Run
 
-From this skill directory:
+The active configuration and reports are stored outside the Workspace at the
+`runtime_roots.workspace_governance` location from `workspace_manifest.yaml`.
+Initialize a new external profile only under an active `external_write` TASK
+whose resolved route scope covers the config directory, and a validated lease
+scoped to those exact paths:
 
 ```powershell
-python scripts/disk_scan.py --config config/scan_config.json
+python scripts/init_config.py --record-id TASK-... --lease ${LOCAL_PATH}
 ```
 
-Optional controls:
+To preserve the existing local scan plan during its first migration, use
+`--migrate-current`. The initializer checks the TASK and lease before writing,
+copies without removing source files, and refuses to overwrite either external
+file. From the Workspace root, run the scanner through the governed runtime so
+each report write and retention delete has its own TASK and lease. Pass `--config`
+only when selecting an explicit configuration path:
 
 ```powershell
-python scripts/disk_scan.py --config config/scan_config.json --max-depth 6
-python scripts/disk_scan.py --config config/scan_config.json --json-only
-python scripts/disk_scan.py --config config/scan_config.json --md-only
-python scripts/disk_scan.py --config config/scan_config.json --deep-scan "D:\Dev\package-cache"
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID>
 ```
 
-The output directory is created when needed. With no `--output`, the scanner
-uses `AI_TOOL_STAGING_DIR`, then the Workspace `runtime_roots.staging` setting,
-then the system temporary directory, always under `disk-scan-reporter/`.
-An explicit output keeps the legacy policy-approved-root checks for existing
-callers; new automation should omit `--output` and keep reports outside source.
-Missing scan
-roots are not created; they are recorded under `skipped`.
+Pass scanner options after the session ID, for example:
+
+```powershell
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --md-only
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --deep-scan "D:\Dev\package-cache"
+```
+
+The 30-day rule permanently deletes only direct `disk_report_YYYY-MM-DD_HHMMSS.md`
+and `.json` files whose filename timestamp and last-write time are both older
+than 30 days. There is no backup for expired reports.
+
+The runtime forwards these scanner controls:
+
+```powershell
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --max-depth 6
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --json-only
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --md-only
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --deep-scan "D:\Dev\package-cache"
+```
+
+Reports default to the external `disk-scan-reporter/reports` directory. Explicit
+`--output` paths must remain inside that same directory. Missing scan roots are
+not created; they are recorded under `skipped`.
 
 ## Configure the Scan
 
@@ -56,6 +81,13 @@ protection, links, `.git`, source repositories and configured exclusions remain
 in force. A shared budget stop produces partial coverage without an automatic
 restart or a request to register more work.
 
+`config/scan_config.example.json` is a generic initialization template;
+`config/audit_policy.example.json` is the reviewed safety-policy template. The
+active files are external and missing files stop the scan. The active audit
+policy must match its template. Run `python scripts/init_config.py
+--sync-audit-policy --record-id TASK-... --lease <LEASE-PATH>` to review and
+explicitly synchronize a changed template. The script verifies a rollback copy
+before replacing the active policy.
 `scan_paths` remains supported for legacy single-stage configurations. Keep
 reports in relative-path mode when they may be shared.
 
@@ -63,10 +95,8 @@ reports in relative-path mode when they may be shared.
 
 Each run writes timestamped files below the resolved output root:
 
-```text
-disk-scan-reporter/disk_report_YYYY-MM-DD_HHMMSS.md
-disk-scan-reporter/disk_report_YYYY-MM-DD_HHMMSS.json
-```
+Files are named `disk_report_YYYY-MM-DD_HHMMSS.md` and
+`disk_report_YYYY-MM-DD_HHMMSS.json` under the external reports directory.
 
 Schema 2.0 reports separate inventory lower bounds, path-policy and promotion
 decisions, deep-scan coverage, and manual-review candidates. Inventory uses
@@ -93,12 +123,13 @@ Run the standalone static audit with:
 python scripts/audit_guard.py
 ```
 
-`config/audit_policy.json` defines production source roots, destructive APIs and
-command tokens, allowed runtime write roots, and shallow snapshot behavior.
-The scanner fails closed if the static audit finds a configured destructive
-operation. Explicit report output is accepted only under `reports/`, `state/`,
-or `logs/`; the resolved default staging directory is separately allowlisted.
-Both paths use lexical and resolved-path containment checks.
+`config/audit_policy.example.json` defines production source roots, destructive
+APIs and command tokens, and shallow snapshot behavior. The scanner fails closed
+if the static audit finds a configured destructive operation or the active
+external policy differs from that template. To synchronize a changed policy,
+pass `--record-id` and `--lease` to `init_config.py --sync-audit-policy`; the
+script creates and verifies a rollback copy before replacement. Report output is accepted only
+under the external reports directory, with lexical and resolved-path checks.
 
 Each report includes per-root coverage:
 

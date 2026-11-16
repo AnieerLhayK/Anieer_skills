@@ -2,34 +2,51 @@
 
 `disk-scan-reporter` 检查 Windows 磁盘用量，支持明确指定目录的只读深扫，并可在原 chat 中执行用户明确批准的精确清理批次。扫描器读取文件系统元数据，输出 Markdown 和 JSON 报告。
 
-扫描器不修改被扫描文件、不提权、不更改系统设置，也不创建缺失目标。清理由独立的 Workspace 执行器在用户批准后完成，详见 [cleanup.md](references/cleanup.md)。
+扫描器不修改被扫描文件、不提权、不更改系统设置，也不创建缺失目标。每次运行都通过 Workspace runtime 创建 TASK 和短期报告 lease。runtime 还会永久删除超过 30 天的指定格式报告；详见 [cleanup.md](references/cleanup.md)。用户批准的其他清理仍由独立适配器执行。
 
 ## 运行
 
-从本技能目录执行：
+活动配置和扫描报告保存在 Workspace 之外，根目录由
+`workspace_manifest.yaml` 的 `runtime_roots.workspace_governance` 指定。
+首次初始化外部配置前，先确认 `external_write` TASK 的解析路由覆盖目标配置路径，并创建同样限定到这些路径的有效 lease：
 
 ```powershell
-python scripts/disk_scan.py --config config/scan_config.json
+python scripts/init_config.py --record-id TASK-... --lease ${LOCAL_PATH}
 ```
 
-可选控制参数：
+首次迁移现有扫描计划时再加 `--migrate-current`。初始化器会先检查 TASK 和
+lease，只复制、不删除源文件；若外部目标已存在则拒绝覆盖。之后从 Workspace
+根目录通过受管 runtime 运行，以便每次报告写入和保留清理都有独立 TASK 与 lease：
 
 ```powershell
-python scripts/disk_scan.py --config config/scan_config.json --max-depth 6
-python scripts/disk_scan.py --config config/scan_config.json --json-only
-python scripts/disk_scan.py --config config/scan_config.json --md-only
-python scripts/disk_scan.py --config config/scan_config.json --deep-scan "D:\Dev\package-cache"
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID>
 ```
 
-输出目录在需要时会自动创建。未指定 `--output` 时，扫描器依次使用
-`AI_TOOL_STAGING_DIR`、Workspace 的 `runtime_roots.staging` 配置、系统临时目录，
-并在其中使用 `disk-scan-reporter/` 子目录。显式输出仍沿用原有的策略批准根目录检查，
-以兼容既有调用方；新自动任务应省略 `--output`，将报告保存在 source 之外。
+在 session ID 后传入扫描器参数，例如：
+
+```powershell
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --md-only
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --deep-scan "D:\Dev\package-cache"
+```
+
+30 天规则会永久删除文件名匹配 `disk_report_YYYY-MM-DD_HHMMSS.md` 或 `.json`，且文件名时间与最后写入时间都早于 30 天的直接子文件。过期报告不备份。
+
+runtime 会转发以下扫描器参数：
+
+```powershell
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --max-depth 6
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --json-only
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --md-only
+python -B -m scripts.workspace.disk_scan_report_runtime --session <SESSION-ID> --deep-scan "D:\Dev\package-cache"
+```
+
+报告默认写入外部 `disk-scan-reporter/reports` 目录。显式 `--output` 也必须位于该目录中。
 缺失的扫描根目录不会被创建，而是记录在 `skipped` 下。
 
 ## 配置扫描
 
-默认两阶段字段见当前 `config/scan_config.json`；以下字段仅适用于兼容的单阶段 `scan_paths` 配置：
+`config/scan_config.example.json` 是通用初始化样例；
+`config/audit_policy.example.json` 是经审查的安全策略模板。活动配置位于外部，缺失时停止扫描；外部活动审计策略必须与模板一致。若更新模板，运行 `python scripts/init_config.py --sync-audit-policy --record-id TASK-... --lease <LEASE-PATH>`，确认后同步；脚本会先创建并校验回滚副本。以下字段仅适用于兼容的单阶段 `scan_paths` 配置：
 
 - `scan_paths`：要检查的显式根路径。环境变量（如 `%USERPROFILE%` 和 `%LOCALAPPDATA%`）会被展开。
 - `exclude_paths`：要跳过的绝对路径或目录名称。
@@ -49,12 +66,9 @@ python scripts/disk_scan.py --config config/scan_config.json --deep-scan "D:\Dev
 
 ## 阅读报告
 
-每次运行都会在解析后的输出根目录下写入带时间戳的文件：
+每次运行都会在外部报告目录写入带时间戳的文件：
 
-```text
-disk-scan-reporter/disk_report_YYYY-MM-DD_HHMMSS.md
-disk-scan-reporter/disk_report_YYYY-MM-DD_HHMMSS.json
-```
+`disk_report_YYYY-MM-DD_HHMMSS.md` 和 `disk_report_YYYY-MM-DD_HHMMSS.json`。
 
 schema 2.0 的 Markdown 报告分别展示盘点下界、路径策略与晋级决定、深扫覆盖和人工审查候选；盘点使用盘符标签，深扫使用晋级根相对路径。
 
@@ -72,7 +86,7 @@ JSON 报告声明 `schema_version`、`tool_version` 和确定性的 SHA-256 `con
 python scripts/audit_guard.py
 ```
 
-`config/audit_policy.json` 定义了生产源代码根目录、破坏性 API 和命令标记、允许的运行时写入根目录以及浅快照行为。如果静态审计发现配置了破坏性操作，扫描器将默认失败关闭。显式报告输出仅接受在 `reports/`、`state/` 或 `logs/` 下；解析出的默认 staging 目录会被单独加入允许列表。两类路径都同时进行词法和解析路径的包含检查。
+`config/audit_policy.example.json` 定义生产源代码根目录、破坏性 API 和命令标记及浅快照行为。若静态审计发现破坏性操作，或外部活动策略与模板不一致，扫描器会失败关闭。报告输出只允许位于外部报告目录，并同时进行词法路径与解析路径的包含检查。
 
 每份报告包含每个根目录的覆盖信息：
 

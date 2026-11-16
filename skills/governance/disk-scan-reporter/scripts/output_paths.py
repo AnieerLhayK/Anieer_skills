@@ -1,14 +1,11 @@
-"""Resolve report output roots without depending on the caller's working directory."""
+"""Resolve disk-scan-reporter runtime paths from the Workspace manifest."""
 
 from __future__ import annotations
 
 import os
-import tempfile
 import importlib.util
 import json
-import re
 from pathlib import Path
-from typing import Mapping
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -33,80 +30,46 @@ except (ImportError, OSError):  # standalone copies without Workspace runtime
     load_manifest = None
 
 
-def workspace_staging_root(manifest_path: Path = WORKSPACE_MANIFEST) -> Path | None:
-    manifest = None
+def _read_manifest(manifest_path: Path) -> dict[str, object]:
     if load_manifest is not None:
         try:
-            manifest = load_manifest(manifest_path)
-        except (OSError, ValueError):
-            pass
-    if manifest is None:
-        manifest = _load_staging_manifest(manifest_path)
-    value = manifest.get("runtime_roots", {}).get("staging")
-    return Path(os.path.expandvars(str(value))).resolve() if value else None
-
-
-def _load_staging_manifest(manifest_path: Path) -> dict[str, object]:
-    """Read the one optional host setting this standalone skill needs."""
+            return load_manifest(manifest_path)
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"Workspace manifest is unavailable: {exc}") from exc
     try:
-        text = manifest_path.read_text(encoding="utf-8")
-    except OSError:
-        return {}
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError:
-        in_runtime_roots = False
-        for line in text.splitlines():
-            if line and not line[0].isspace():
-                in_runtime_roots = line.strip() == "runtime_roots:"
-                continue
-            if in_runtime_roots:
-                match = re.fullmatch(r"\s+staging:\s*(.*?)\s*", line)
-                if match:
-                    value = _yaml_scalar(match.group(1))
-                    if value is None:
-                        return {}
-                    return {"runtime_roots": {"staging": value}}
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
+        payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Workspace manifest is unavailable: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Workspace manifest must contain an object")
+    return payload
 
 
-def _yaml_scalar(raw: str) -> str | None:
-    """Read a plain or quoted YAML scalar with an optional trailing comment."""
-    value = raw.strip()
-    if value.startswith("'"):
-        chars: list[str] = []
-        index = 1
-        while index < len(value):
-            if value[index] == "'":
-                if index + 1 < len(value) and value[index + 1] == "'":
-                    chars.append("'")
-                    index += 2
-                    continue
-                trailing = value[index + 1 :].strip()
-                return "".join(chars) if not trailing or trailing.startswith("#") else None
-            chars.append(value[index])
-            index += 1
-        return None
-    if value.startswith('"'):
-        try:
-            decoded, end = json.JSONDecoder().raw_decode(value)
-        except (json.JSONDecodeError, TypeError):
-            return None
-        trailing = value[end:].strip()
-        return decoded if isinstance(decoded, str) and (not trailing or trailing.startswith("#")) else None
-    return re.split(r"\s+#", value, maxsplit=1)[0].rstrip()
+def workspace_governance_root(manifest_path: Path = WORKSPACE_MANIFEST) -> Path:
+    """Return the explicitly registered external Workspace governance root."""
+    manifest = _read_manifest(manifest_path)
+    runtime_roots = manifest.get("runtime_roots")
+    value = runtime_roots.get("workspace_governance") if isinstance(runtime_roots, dict) else None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("workspace_manifest.yaml must define runtime_roots.workspace_governance")
+    expanded = Path(os.path.expandvars(os.path.expanduser(value)))
+    if not expanded.is_absolute():
+        raise ValueError("runtime_roots.workspace_governance must be an absolute path")
+    return expanded.resolve()
 
 
-def default_output_root(
-    *,
-    environment: Mapping[str, str] | None = None,
-    manifest_path: Path = WORKSPACE_MANIFEST,
-    temp_root: Path | None = None,
-) -> Path:
-    active_environment = os.environ if environment is None else environment
-    configured = active_environment.get("AI_TOOL_STAGING_DIR", "").strip()
-    staging = Path(os.path.expandvars(configured)).resolve() if configured else None
-    staging = staging or workspace_staging_root(manifest_path)
-    staging = staging or Path(temp_root or tempfile.gettempdir()).resolve()
-    return staging / "disk-scan-reporter"
+def disk_scan_data_root(manifest_path: Path = WORKSPACE_MANIFEST) -> Path:
+    return workspace_governance_root(manifest_path) / "disk-scan-reporter"
+
+
+def default_config_path(manifest_path: Path = WORKSPACE_MANIFEST) -> Path:
+    return disk_scan_data_root(manifest_path) / "config" / "scan_config.json"
+
+
+def default_audit_policy_path(manifest_path: Path = WORKSPACE_MANIFEST) -> Path:
+    return disk_scan_data_root(manifest_path) / "config" / "audit_policy.json"
+
+
+def default_output_root(manifest_path: Path = WORKSPACE_MANIFEST) -> Path:
+    """The durable report directory is external to the Workspace source tree."""
+    return disk_scan_data_root(manifest_path) / "reports"

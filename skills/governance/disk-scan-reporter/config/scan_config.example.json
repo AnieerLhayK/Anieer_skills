@@ -12,8 +12,8 @@
         "inventory_max_seconds": 60,
         "deep_threshold_gib": 4,
         "hard_protected_paths": ["C:\\$Recycle.Bin", "C:\\Documents and Settings", "C:\\Recovery", "C:\\System Volume Information", "C:\\Windows", "C:\\hiberfil.sys", "C:\\pagefile.sys", "C:\\swapfile.sys"],
-        "review_only_paths": ["C:\\Program Files", "C:\\Program Files (x86)", "C:\\ProgramData", "C:\\Qt", "C:\\inetpub"],
-        "auto_deep_paths": ["%USERPROFILE%", "C:\\OneDriveTemp"],
+        "review_only_paths": ["C:\\Program Files", "C:\\Program Files (x86)", "C:\\ProgramData"],
+        "auto_deep_paths": ["%USERPROFILE%"],
         "auto_deep_direct_children": false
       },
       {
@@ -24,7 +24,7 @@
         "inventory_max_seconds": 120,
         "deep_threshold_gib": 8,
         "hard_protected_paths": ["D:\\$RECYCLE.BIN", "D:\\System Volume Information"],
-        "review_only_paths": ["D:\\AI", "D:\\AI\\data\\codex", "D:\\AppsData", "D:\\CODER", "D:\\Dev", "D:\\Git", "D:\\Program Files", "D:\\ProgramData", "D:\\SDK", "D:\\SteamLibrary", "D:\\VScodeCPP", "D:\\WeGame", "D:\\WeGameApps", "D:\\opencode"],
+        "review_only_paths": ["D:\\Program Files", "D:\\ProgramData"],
         "auto_deep_paths": [],
         "auto_deep_direct_children": true
       }
@@ -33,7 +33,7 @@
   "manual_deep_scan": {
     "max_total_seconds": 900,
     "max_total_files": 500000,
-    "excluded_paths": ["D:\\AI\\workspace", "D:\\AI\\projects", "D:\\AI\\research", "D:\\AI\\data\\mcp"]
+    "excluded_paths": []
   },
   "large_file_mb": 1024,
   "very_large_file_mb": 4096,

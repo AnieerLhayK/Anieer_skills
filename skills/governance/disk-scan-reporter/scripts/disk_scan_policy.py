@@ -142,7 +142,14 @@ def audit_policy_for_config(
     policy_path = Path(os.path.abspath(config_path.parent / candidate))
     if policy_path.parent != Path(os.path.abspath(config_path.parent)):
         raise ValueError("audit_policy must stay in the config directory")
-    return policy_path, load_audit_policy(policy_path)
+    active_policy = load_audit_policy(policy_path)
+    template_policy = load_audit_policy(DEFAULT_POLICY_PATH)
+    if active_policy != template_policy:
+        raise ValueError(
+            "active audit policy differs from the reviewed template; "
+            "synchronize it explicitly before scanning"
+        )
+    return policy_path, active_policy
 
 
 __all__ = [

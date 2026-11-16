@@ -13,7 +13,7 @@ from typing import Any, Iterable
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_POLICY_PATH = SKILL_ROOT / "config" / "audit_policy.json"
+DEFAULT_POLICY_PATH = SKILL_ROOT / "config" / "audit_policy.example.json"
 SUBPROCESS_CALLS = {
     "os.system",
     "subprocess.call",

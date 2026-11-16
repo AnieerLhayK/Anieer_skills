@@ -32,7 +32,7 @@ from scripts.disk_scan import (
     run_scan,
     scan_root,
 )
-from scripts.output_paths import default_output_root
+from scripts.output_paths import default_audit_policy_path, default_config_path, default_output_root
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -59,77 +59,53 @@ class DiskScanTests(unittest.TestCase):
         self.assertIs(disk_scan_engine.RISK_ORDER, disk_scan_rendering.RISK_ORDER)
         self.assertIs(disk_scan_engine.COVERAGE_PRIORITY, disk_scan_rendering.COVERAGE_PRIORITY)
 
-    def test_default_output_prefers_environment_staging(self) -> None:
+    def test_default_runtime_paths_use_manifest_governance_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
-            staging = Path(temp) / "configured"
-            output = default_output_root(
-                environment={"AI_TOOL_STAGING_DIR": str(staging)},
-                manifest_path=Path(temp) / "missing-manifest.json",
-                temp_root=Path(temp) / "fallback",
+            root = Path(temp)
+            data_root = root / "governance"
+            manifest = root / "manifest.json"
+            manifest.write_text(
+                json.dumps({"runtime_roots": {"workspace_governance": str(data_root)}}),
+                encoding="utf-8",
             )
-            self.assertEqual(output, staging.resolve() / "disk-scan-reporter")
+            self.assertEqual(default_output_root(manifest), data_root / "disk-scan-reporter" / "reports")
+            self.assertEqual(default_config_path(manifest), data_root / "disk-scan-reporter" / "config" / "scan_config.json")
+            self.assertEqual(default_audit_policy_path(manifest), data_root / "disk-scan-reporter" / "config" / "audit_policy.json")
 
-    def test_default_output_uses_host_manifest_then_system_temp(self) -> None:
+    def test_default_runtime_paths_fail_when_manifest_root_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             manifest = root / "manifest.json"
-            staging = root / "host-staging"
-            manifest.write_text(
-                json.dumps({"runtime_roots": {"staging": str(staging)}}),
-                encoding="utf-8",
-            )
-            self.assertEqual(
-                default_output_root(
-                    environment={}, manifest_path=manifest, temp_root=root / "fallback"
-                ),
-                staging.resolve() / "disk-scan-reporter",
-            )
+            manifest.write_text(json.dumps({"runtime_roots": {}}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "workspace_governance"):
+                default_output_root(manifest)
             manifest.write_text("{}", encoding="utf-8")
-            self.assertEqual(
-                default_output_root(
-                    environment={}, manifest_path=manifest, temp_root=root / "fallback"
-                ),
-                (root / "fallback" / "disk-scan-reporter").resolve(),
-            )
+            with self.assertRaisesRegex(ValueError, "workspace_governance"):
+                default_output_root(manifest)
 
-    def test_default_output_reads_manifest_without_workspace_runtime(self) -> None:
+    def test_default_runtime_paths_can_read_manifest_without_workspace_loader(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            manifest = root / "manifest.yaml"
-            staging = root / "host # staging"
+            manifest = root / "manifest.json"
+            data_root = root / "governance data"
             with patch.object(output_paths, "load_manifest", None):
-                for scalar in (
-                    f"'{staging}' # single note",
-                    f'{json.dumps(str(staging))} # double note',
-                ):
-                    with self.subTest(scalar=scalar):
-                        manifest.write_text(
-                            f"runtime_roots:\n  staging: {scalar}\n", encoding="utf-8"
-                        )
-                        self.assertEqual(
-                            default_output_root(
-                                environment={}, manifest_path=manifest,
-                                temp_root=root / "fallback",
-                            ),
-                            (staging / "disk-scan-reporter").resolve(),
-                        )
+                manifest.write_text(
+                    json.dumps({"runtime_roots": {"workspace_governance": str(data_root)}}),
+                    encoding="utf-8",
+                )
+                self.assertEqual(
+                    default_output_root(manifest),
+                    (data_root / "disk-scan-reporter" / "reports").resolve(),
+                )
 
-    def test_cli_without_output_writes_to_environment_staging(self) -> None:
+    def test_cli_stops_when_default_external_config_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            environment = os.environ.copy()
-            environment["AI_TOOL_STAGING_DIR"] = str(root / "staging")
-            result = subprocess.run(
-                [sys.executable, "-B", str(SCRIPT_PATH), "--config", str(root / "missing.json")],
-                cwd=root,
-                env=environment,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            self.assertNotEqual(result.returncode, 0)
-            reports = list((root / "staging" / "disk-scan-reporter").glob("*.json"))
-            self.assertEqual(len(reports), 1)
+            with patch("scripts.disk_scan_engine.default_config_path", return_value=root / "missing.json"), \
+                    patch("scripts.disk_scan_engine.default_output_root", return_value=root / "reports"), \
+                    patch.object(sys, "argv", [str(SCRIPT_PATH)]):
+                self.assertEqual(disk_scan_engine.main(), 2)
+            self.assertFalse((root / "reports").exists())
 
     def base_config(self, root: Path) -> dict[str, object]:
         return {
@@ -587,25 +563,15 @@ class DiskScanTests(unittest.TestCase):
     def test_invalid_config_returns_nonzero_cli_status(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            with tempfile.TemporaryDirectory(
-                dir=SKILL_ROOT / "reports",
-            ) as output:
-                result = subprocess.run(
-                    [
-                        sys.executable,
-                        str(SCRIPT_PATH),
-                        "--config",
-                        str(root / "missing.json"),
-                        "--output",
-                        output,
-                    ],
-                    cwd=SKILL_ROOT,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                self.assertNotEqual(result.returncode, 0)
-                self.assertEqual(len(list(Path(output).glob("*.json"))), 1)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT_PATH), "--config", str(root / "missing.json")],
+                cwd=SKILL_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("configuration file does not exist", result.stdout)
 
     def test_complete_coverage_is_reported_per_root(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
