@@ -865,10 +865,12 @@ def require_apply_authorization(
 ) -> None:
     if not record_id:
         raise RetirementError("active_task_record_required")
+    env = {**os.environ, "PYTHONUTF8": "1"}
+    workspace_root = Path(__file__).resolve().parents[4]
     try:
         subprocess.run(
             [
-                "workspace", "records", "require", record_id,
+                sys.executable, "-m", "scripts.workspace.workspace_cli", "records", "require", record_id,
                 "--operation", "workspace_write",
                 "--task-type", "cleanup_migration",
                 "--bind", f"retirement-target={canonical_target}",
@@ -876,8 +878,11 @@ def require_apply_authorization(
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            env=env,
+            cwd=workspace_root,
         )
-        subprocess.run(["workspace", "agent", "check", "--agent", agent, "--operation", "write", "--path", str(registry), "--record-id", record_id], check=True, capture_output=True, text=True)
+        subprocess.run([sys.executable, "-m", "scripts.workspace.workspace_cli", "agent", "check", "--agent", agent, "--operation", "write", "--path", str(registry.resolve()), "--record-id", record_id], check=True, capture_output=True, text=True, encoding="utf-8", env=env, cwd=workspace_root)
     except (OSError, subprocess.CalledProcessError) as exc:
         raise RetirementError("agent_authorization_denied") from exc
 
