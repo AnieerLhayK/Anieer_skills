@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "source_revision": "72755948e3d793e191f7e4b83d098b0bf5df0853",
+  "source_revision": "f1a725a10a8d25440180ca0daa5bb8acd11fcda2",
   "publisher": "scripts/publishing/sync_skill_collection_repo.py",
   "generator": "scripts/publishing/publish_skill_collection.py"
 }
