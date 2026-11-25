@@ -43,6 +43,10 @@ It uses native PowerShell deletion outside the audited scanner package.
    action. Native PowerShell uses literal paths; it does not elevate, stop
    applications or retry through another deletion mechanism. A failure stops
    the remaining batch. Previously removed items are not silently rolled back.
+   The host defaults to Windows PowerShell; `DISK_SCAN_POWERSHELL=pwsh.exe`
+   explicitly selects PowerShell 7 for a run. Both hosts execute the same native
+   script without changing execution policy. Never select a different host to
+   retry a denied batch unless the user explicitly authorizes that change.
 3. The adapter verifies absence at the original paths, runs the routed workflow
    check, revokes the lease, finalizes the TASK and returns the per-action
    receipt. Report removed, failed and unattempted actions distinctly. Distinguish
